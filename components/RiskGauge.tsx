@@ -20,7 +20,7 @@ const RiskGauge: React.FC<RiskGaugeProps> = ({ score, level }) => {
   const colors = getColors();
 
   return (
-    <div className={`p-8 rounded-3xl border text-center shadow-lg transition-all transform hover:scale-[1.02] ${colors}`}>
+    <div className={`p-8 rounded-[2.5rem] border text-center shadow-lg transition-all ${colors}`}>
       <div className="relative inline-block mb-4">
         <svg className="w-40 h-40 transform -rotate-90">
           <circle
@@ -46,11 +46,11 @@ const RiskGauge: React.FC<RiskGaugeProps> = ({ score, level }) => {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-4xl font-bold">{score}%</span>
-          <span className="text-sm font-medium opacity-70 uppercase tracking-widest">Risk</span>
+          <span className="text-xs font-black uppercase tracking-widest opacity-60">Threat</span>
         </div>
       </div>
-      <h3 className="text-2xl font-bold uppercase tracking-tight mb-2">{level}</h3>
-      <p className="text-sm opacity-80">Security Assessment Score</p>
+      <h3 className="text-2xl font-black uppercase tracking-tighter mb-1">{level}</h3>
+      <p className="text-[10px] opacity-70 font-bold uppercase tracking-widest">Composite Risk Level</p>
     </div>
   );
 };

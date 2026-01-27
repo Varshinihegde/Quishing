@@ -1,13 +1,7 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult, RiskLevel } from "../types";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import { AnalysisResult, RiskLevel, GroundingSource } from "../types";
 
-/**
- * World-class initialization logic:
- * We only instantiate the SDK inside the service calls. This prevents the 
- * entire application module from failing to load if process.env.API_KEY is 
- * temporarily unavailable or incorrectly formatted in the environment.
- */
 function getAI() {
   const apiKey = process.env.API_KEY;
   if (!apiKey || apiKey === "undefined") {
@@ -16,28 +10,52 @@ function getAI() {
   return new GoogleGenAI({ apiKey });
 }
 
-export async function analyzeQRContent(content: string): Promise<AnalysisResult> {
+/**
+ * Performs a Universal Security Analysis detecting structural authenticity and safety.
+ */
+export async function performDeepAnalysis(
+  content: string | null, 
+  base64Image: string | null
+): Promise<AnalysisResult> {
   try {
     const ai = getAI();
-    const model = 'gemini-3-flash-preview';
+    const model = 'gemini-3-pro-preview';
     
+    let parts: any[] = [];
+    
+    if (base64Image) {
+      const base64Data = base64Image.split(',')[1] || base64Image;
+      parts.push({
+        inlineData: {
+          mimeType: 'image/png',
+          data: base64Data,
+        }
+      });
+    }
+
+    const prompt = `You are a Cybersecurity & Intelligence Specialist. Analyze the provided QR code for both structural authenticity and malicious intent.
+
+    Input Data: "${content || 'Image Capture Only'}"
+
+    STRICT PHRASING RULES:
+    1. IF THE CODE IS MALICIOUS: Your explanation MUST start with the exact phrase: "This is a malicious QR code."
+    2. IF THE CODE IS FAKE OR UNORIGINAL (but safe): Your explanation MUST start with the exact phrase: "This is not a malicious code, but it is not original and it is fake."
+    3. IF THE CODE IS AUTHENTIC AND SAFE: Provide a standard safety confirmation.
+
+    PROBABILITIES (Must sum to 100):
+    - 'malicious': Risk percentage of phishing/malware.
+    - 'fake': Probability percentage the QR itself is a visual trap, unoriginal, or malformed pattern.
+    - 'authentic': Probability percentage this is a legitimate, high-integrity standard code.
+
+    Return JSON with: riskScore (0-100), riskLevel (SAFE/SUSPICIOUS/MALICIOUS), explanation, recommendations (min 3 clear security steps), probabilities object, and originalContent.`;
+
+    parts.push({ text: prompt });
+
     const response = await ai.models.generateContent({
       model,
-      contents: `You are a high-level cybersecurity analyst specializing in "Quishing" (QR Phishing). 
-      Analyze the following decoded QR content: "${content}"
-
-      STRICT CATEGORIZATION RULES:
-      1. TRANSIT TOKENS: If the content is a long alphanumeric hash/token without a URL (e.g., used in Namma Metro, IRCTC, or flight boarding passes), mark as SAFE.
-      2. OFFICIAL DOMAINS: If it is a clear official domain (e.g., .gov, .edu, or major banks), mark as SAFE.
-      3. SUSPICIOUS: Mark as SUSPICIOUS if it uses URL shorteners (bit.ly, t.co) or unfamiliar TLDs.
-      4. MALICIOUS: Mark as MALICIOUS if it leads to known phishing patterns, IP addresses, or typo-squatted domains.
-
-      Return a JSON object with:
-      - riskScore: 0 (Safe) to 100 (Critical)
-      - riskLevel: SAFE, SUSPICIOUS, or MALICIOUS
-      - explanation: A clear, professional security assessment.
-      - recommendations: 3 specific steps for the user.`,
+      contents: { parts },
       config: {
+        tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -45,34 +63,61 @@ export async function analyzeQRContent(content: string): Promise<AnalysisResult>
             riskScore: { type: Type.NUMBER },
             riskLevel: { type: Type.STRING, enum: Object.values(RiskLevel) },
             explanation: { type: Type.STRING },
-            recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+            recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
+            originalContent: { type: Type.STRING },
+            probabilities: {
+              type: Type.OBJECT,
+              properties: {
+                malicious: { type: Type.NUMBER },
+                fake: { type: Type.NUMBER },
+                authentic: { type: Type.NUMBER }
+              },
+              required: ["malicious", "fake", "authentic"]
+            }
           },
-          required: ["riskScore", "riskLevel", "explanation", "recommendations"]
+          required: ["riskScore", "riskLevel", "explanation", "recommendations", "probabilities", "originalContent"]
         }
       }
     });
 
-    const result = JSON.parse(response.text || '{}');
-    return { ...result, originalContent: content };
-
-  } catch (error: any) {
-    console.error("AI Analysis Engine Fallback:", error.message);
-    
-    // Fallback response for offline/error states
-    return {
-      riskScore: 0,
-      riskLevel: RiskLevel.SUSPICIOUS,
-      explanation: error.message === "MISSING_API_KEY" 
-        ? "AI Security analysis is currently in 'Local-Only' mode because the API key is not configured. Please inspect the content manually."
-        : "The AI analysis engine is temporarily unreachable. Using local heuristics for safety check.",
-      recommendations: [
-        "Verify the domain name manually for spelling errors",
-        "Only proceed if you generated this QR code yourself",
-        "Check if the source of the QR code is a trusted physical location"
-      ],
-      originalContent: content
-    };
+    return processResponse(response, content || "Visual Data Captured");
+  } catch (error) {
+    console.error("Analysis failed:", error);
+    return getFallbackResult(content || "Analysis Error");
   }
+}
+
+function processResponse(response: GenerateContentResponse, defaultContent: string): AnalysisResult {
+  const groundingSources: GroundingSource[] = [];
+  const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  if (chunks) {
+    chunks.forEach((chunk: any) => {
+      if (chunk.web) {
+        groundingSources.push({
+          title: chunk.web.title || "Security Reference",
+          uri: chunk.web.uri
+        });
+      }
+    });
+  }
+
+  const result = JSON.parse(response.text || '{}');
+  return { 
+    ...result, 
+    originalContent: result.originalContent || defaultContent,
+    groundingSources: groundingSources.length > 0 ? groundingSources : undefined
+  };
+}
+
+function getFallbackResult(content: string): AnalysisResult {
+  return {
+    riskScore: 50,
+    riskLevel: RiskLevel.SUSPICIOUS,
+    explanation: "Security verification timed out. Please review the content manually.",
+    recommendations: ["Do not click links if the source is unknown", "Verify the destination URL manually", "Ensure the QR code was provided by a trusted source"],
+    originalContent: content,
+    probabilities: { malicious: 33, fake: 33, authentic: 34 }
+  };
 }
 
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
@@ -80,13 +125,13 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `The user just scanned this QR content: "${context || 'None'}". Now they are asking: "${message}"`,
+      contents: `Context: ${context || 'Security analysis'}. User: "${message}"`,
       config: {
-        systemInstruction: "You are QRShield Assistant. Your goal is to educate users on QR security and phishing prevention. Be concise, professional, and helpful."
+        systemInstruction: "You are the QRShield Security Expert. Assist users with QR safety inquiries without using the word forensic."
       }
     });
-    return response.text || "I'm sorry, I'm having trouble processing that request.";
+    return response.text || "I encountered an error processing your query.";
   } catch {
-    return "I am currently in standby mode. Please ensure the API key is configured to enable AI conversation.";
+    return "Chat is currently offline.";
   }
 }
