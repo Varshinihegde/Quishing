@@ -2,10 +2,27 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, RiskLevel, GroundingSource } from "../types";
 
+/**
+ * Safely retrieves the API key from the environment.
+ */
+function getApiKey(): string {
+  // Try to get from process.env (standard)
+  try {
+    const key = process.env.API_KEY;
+    if (key && key !== "undefined" && key !== "") return key;
+  } catch (e) {}
+
+  // Try window global if process is missing (some ESM environments)
+  const win = window as any;
+  if (win.process?.env?.API_KEY) return win.process.env.API_KEY;
+  
+  return "";
+}
+
 function getAI() {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    throw new Error("API_KEY_NOT_CONFIGURED");
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("API_KEY_MISSING");
   }
   return new GoogleGenAI({ apiKey });
 }
@@ -21,10 +38,7 @@ export async function performDeepAnalysis(
   try {
     ai = getAI();
   } catch (e: any) {
-    // Re-throw configuration errors so the UI can show the error state
-    throw new Error(e.message === "API_KEY_NOT_CONFIGURED" 
-      ? "API connection failed. Please ensure your environment is configured correctly." 
-      : "Security Service Initialization Error.");
+    throw new Error("API connection failed. Please ensure your API key is configured in your environment.");
   }
 
   try {
@@ -95,13 +109,17 @@ export async function performDeepAnalysis(
     return processResponse(response, content || "Visual Data Captured");
   } catch (error: any) {
     console.error("Analysis failed:", error);
-    // Throw error if it's a known API error (401, 403, 404, etc)
     const errorMsg = error.message || "";
+    
+    // Check for "Requested entity was not found" which usually means the project needs re-linking/billing
+    if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("404")) {
+      throw new Error("RESELECT_KEY");
+    }
+
     if (errorMsg.includes("401") || errorMsg.includes("403") || errorMsg.includes("API key")) {
       throw new Error("Invalid API Credentials. Please check your setup.");
     }
     
-    // Fallback for logic errors or safety blocks
     return getFallbackResult(content || "Analysis Error");
   }
 }
@@ -146,7 +164,7 @@ export async function getChatbotResponse(message: string, context?: string): Pro
       model: 'gemini-3-flash-preview',
       contents: `Context: ${context || 'Security analysis'}. User: "${message}"`,
       config: {
-        systemInstruction: "You are the QRShield Security Expert. Assist users with QR safety inquiries without using the word forensic."
+        systemInstruction: "You are the QRShield Security Expert. Assist users with QR safety inquiries."
       }
     });
     return response.text || "I encountered an error processing your query.";

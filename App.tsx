@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { QRState, RiskLevel } from './types';
 import { performDeepAnalysis } from './services/geminiService';
 import Scanner from './components/Scanner';
@@ -9,6 +9,7 @@ import jsQR from 'jsqr';
 
 const App: React.FC = () => {
   const chatbotRef = useRef<ChatbotHandle>(null);
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [state, setState] = useState<QRState>({
     view: 'home',
     decodedContent: null,
@@ -17,6 +18,37 @@ const App: React.FC = () => {
     loading: false,
     error: null,
   });
+
+  // Check for API key on mount
+  useEffect(() => {
+    const checkKey = async () => {
+      const win = window as any;
+      const apiKey = process.env.API_KEY;
+      
+      if (apiKey && apiKey !== "undefined" && apiKey !== "") {
+        setHasKey(true);
+        return;
+      }
+
+      if (win.aistudio?.hasSelectedApiKey) {
+        const selected = await win.aistudio.hasSelectedApiKey();
+        setHasKey(selected);
+      } else {
+        // If not in an environment with aistudio helper, assume true and let the service throw if missing
+        setHasKey(true);
+      }
+    };
+    checkKey();
+  }, []);
+
+  const handleOpenKeyDialog = async () => {
+    const win = window as any;
+    if (win.aistudio?.openSelectKey) {
+      await win.aistudio.openSelectKey();
+      // Per instructions: assume success after triggering
+      setHasKey(true);
+    }
+  };
 
   const resetState = () => {
     setState({
@@ -48,11 +80,16 @@ const App: React.FC = () => {
       }));
     } catch (err: any) {
       console.error("UI Analysis Error:", err);
-      setState(prev => ({ 
-        ...prev, 
-        error: err.message || "Security Analysis failed to complete.", 
-        loading: false 
-      }));
+      if (err.message === "RESELECT_KEY") {
+        setHasKey(false);
+        setState(prev => ({ ...prev, loading: false, view: 'home' }));
+      } else {
+        setState(prev => ({ 
+          ...prev, 
+          error: err.message || "Security Analysis failed to complete.", 
+          loading: false 
+        }));
+      }
     }
   };
 
@@ -81,6 +118,38 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
     e.target.value = '';
   };
+
+  // Setup Screen if key is missing
+  if (hasKey === false) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-slate-100">
+        <div className="max-w-md w-full bg-slate-800 rounded-[2.5rem] border border-slate-700 p-10 text-center shadow-2xl space-y-8">
+          <div className="w-20 h-20 bg-blue-600/10 rounded-3xl flex items-center justify-center mx-auto">
+            <i className="fas fa-key text-3xl text-blue-500"></i>
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-3xl font-black">Setup Required</h2>
+            <p className="text-slate-400 leading-relaxed">
+              To use Gemini 3 Security Analysis, you must select an API key from a paid GCP project.
+            </p>
+          </div>
+          <div className="p-4 bg-slate-900/50 rounded-2xl border border-slate-700 text-xs text-left">
+            <p className="font-bold text-slate-300 mb-1">Notice:</p>
+            <p className="text-slate-500">
+              The API key selection is managed by the host platform. Ensure you have 
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-blue-400 hover:underline mx-1">billing enabled</a>.
+            </p>
+          </div>
+          <button 
+            onClick={handleOpenKeyDialog}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold transition-all shadow-xl shadow-blue-500/20"
+          >
+            Configure API Key
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
