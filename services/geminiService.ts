@@ -4,12 +4,12 @@ import { AnalysisResult, RiskLevel, GroundingSource } from "../types";
 
 /**
  * Initialize the Gemini API client.
- * The API key is obtained exclusively from the environment variable.
+ * The API key must be obtained exclusively from the environment variable process.env.API_KEY.
  */
 const getAI = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY_NOT_FOUND");
+  if (!apiKey || apiKey === "undefined") {
+    throw new Error("ENVIRONMENT_KEY_MISSING");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -42,7 +42,7 @@ export async function performDeepAnalysis(
     Detect:
     1. Phishing attempts (Quishing).
     2. Malicious URL redirection or obfuscation.
-    3. Structural abnormalities in the QR pattern.
+    3. Structural abnormalities in the QR pattern that suggest tampering.
     
     STRICT JSON OUTPUT REQUIRED.
     Return riskScore (0-100), riskLevel (SAFE/SUSPICIOUS/MALICIOUS), explanation, and recommendations.
@@ -84,8 +84,8 @@ export async function performDeepAnalysis(
     return processResponse(response, content || "Unknown Data");
   } catch (error: any) {
     console.error("Analysis error:", error);
-    if (error.message === "API_KEY_NOT_FOUND") {
-      throw new Error("Missing API Key. Please configure your environment variables.");
+    if (error.message === "ENVIRONMENT_KEY_MISSING") {
+      throw new Error("Missing API Key. In VS Code, ensure you have set API_KEY in your environment or .env file.");
     }
     return getFallbackResult(content || "Scan Error");
   }
@@ -117,8 +117,8 @@ function getFallbackResult(content: string): AnalysisResult {
   return {
     riskScore: 50,
     riskLevel: RiskLevel.SUSPICIOUS,
-    explanation: "Standard analysis threshold reached. Unable to perform deep forensic inspection.",
-    recommendations: ["Check for URL typos", "Do not enter credentials", "Verify the source"],
+    explanation: "Deep analysis is currently unavailable. Displaying baseline security heuristics.",
+    recommendations: ["Manually verify the target URL", "Do not provide sensitive data", "Look for visual artifacts in the QR code"],
     originalContent: content,
     probabilities: { malicious: 33, fake: 33, authentic: 34 }
   };
@@ -131,11 +131,11 @@ export async function getChatbotResponse(message: string, context?: string): Pro
       model: 'gemini-3-flash-preview',
       contents: `Context: ${context || 'General security help'}. User: "${message}"`,
       config: {
-        systemInstruction: "You are QRShield AI. Help users understand QR code safety and Quishing."
+        systemInstruction: "You are QRShield AI. Help users understand QR code safety, URL redirects, and the dangers of Quishing."
       }
     });
-    return response.text || "I'm experiencing a brief connection delay.";
+    return response.text || "I'm having trouble connecting to my knowledge base.";
   } catch {
-    return "Chat services are currently limited. Please verify your connection.";
+    return "The assistant is currently offline. Please ensure your environment is configured correctly.";
   }
 }
