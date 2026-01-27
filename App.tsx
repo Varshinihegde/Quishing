@@ -49,7 +49,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       setState(prev => ({ 
         ...prev, 
-        error: err.message || "An unexpected error occurred during analysis.", 
+        error: "Security Analysis failed to initialize. Please check your network connection and try again.", 
         loading: false 
       }));
     }
@@ -104,8 +104,8 @@ const App: React.FC = () => {
           <div className="space-y-16 py-10 animate-in fade-in zoom-in-95 duration-700">
             <div className="space-y-6 text-center">
               <h1 className="text-6xl md:text-7xl font-black leading-tight tracking-tighter">
-                Intelligent Scan. <br/>
-                <span className="text-blue-500">Secure Future.</span>
+                Smart Analysis. <br/>
+                <span className="text-blue-500">Zero Trust.</span>
               </h1>
               <p className="text-slate-400 text-xl max-w-lg mx-auto leading-relaxed">
                 Identify phishing patterns and malicious redirects hidden within QR codes using advanced AI forensics.
@@ -177,8 +177,8 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="text-center">
-              <h2 className="text-2xl font-bold">Analyzing Patterns...</h2>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2">Connecting to Gemini AI</p>
+              <h2 className="text-2xl font-bold">Forensic Inspection...</h2>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2">Connecting to Security Cloud</p>
             </div>
           </div>
         )}
@@ -186,22 +186,16 @@ const App: React.FC = () => {
         {state.error && (
           <div className="text-center py-20 animate-in zoom-in max-w-md mx-auto">
             <div className="w-20 h-20 bg-rose-500/10 rounded-[1.5rem] flex items-center justify-center mx-auto mb-8 ring-4 ring-rose-500/5">
-              <i className="fas fa-exclamation-triangle text-3xl text-rose-500"></i>
+              <i className="fas fa-circle-xmark text-3xl text-rose-500"></i>
             </div>
-            <h2 className="text-3xl font-black mb-4">Setup Required</h2>
-            <div className="bg-slate-800/50 p-6 rounded-2xl mb-8 border border-slate-700 text-left">
-               <p className="text-slate-300 mb-4 leading-relaxed font-medium">
+            <h2 className="text-3xl font-black mb-4">Analysis Blocked</h2>
+            <div className="bg-slate-800/50 p-6 rounded-2xl mb-8 border border-slate-700 text-center">
+               <p className="text-slate-300 leading-relaxed font-medium">
                  {state.error}
                </p>
-               <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Instructions for local dev:</div>
-               <ul className="text-xs text-slate-400 space-y-2 list-disc pl-4">
-                 <li>Create a <b>.env</b> file in your project root</li>
-                 <li>Add <b>API_KEY=your_key</b> to the file</li>
-                 <li>Restart your dev server</li>
-               </ul>
             </div>
             <button onClick={resetState} className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold transition-all shadow-xl shadow-blue-500/20">
-              Return to Home
+              Return to Safety
             </button>
           </div>
         )}
@@ -213,12 +207,12 @@ const App: React.FC = () => {
               
               <div className="md:col-span-2 space-y-6">
                 <div className="bg-slate-800/40 p-8 rounded-[2rem] border border-slate-700/50 shadow-inner">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-6">Probability Distribution</h4>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-6">Security Probability</h4>
                   <div className="space-y-6">
                     {[
                       { label: 'Phishing Pattern', value: state.analysis.probabilities.malicious, color: 'bg-rose-500' },
-                      { label: 'Fake Identity', value: state.analysis.probabilities.fake, color: 'bg-amber-500' },
-                      { label: 'Verified Authentic', value: state.analysis.probabilities.authentic, color: 'bg-emerald-500' }
+                      { label: 'Identity Risk', value: state.analysis.probabilities.fake, color: 'bg-amber-500' },
+                      { label: 'Verified Integrity', value: state.analysis.probabilities.authentic, color: 'bg-emerald-500' }
                     ].map((item, i) => (
                       <div key={i}>
                         <div className="flex justify-between text-xs font-black mb-2 px-1">
