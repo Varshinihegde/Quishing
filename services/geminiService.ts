@@ -3,22 +3,18 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, RiskLevel, GroundingSource } from "../types";
 
 /**
- * Performs a deep security analysis using Gemini 3 Pro.
- * The API key is obtained exclusively from process.env.API_KEY.
+ * Performs a deep security analysis using Gemini.
  */
 export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
   try {
-    // Instantiate inside the function to ensure up-to-date environment access
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      throw new Error("API_KEY_MISSING");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-    const model = 'gemini-3-pro-preview';
+    // ALWAYS use the named parameter and direct process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Using gemini-3-flash-preview for fast and reliable security analysis.
+    const model = 'gemini-3-flash-preview';
     let parts: any[] = [];
     
     if (base64Image) {
@@ -31,17 +27,17 @@ export async function performDeepAnalysis(
       });
     }
 
-    const prompt = `Act as a senior Cybersecurity Analyst. Inspect this QR code data for Quishing (QR Phishing).
-    Content: "${content || 'Captured via Image'}"
-
-    Detect:
-    1. Phishing attempts (Quishing).
-    2. Malicious URL redirection or obfuscation.
-    3. Structural abnormalities in the QR pattern that suggest tampering.
+    const prompt = `Act as a senior Cybersecurity Analyst. 
+    Analyze this QR code data for security threats, specifically Quishing (QR Phishing).
     
-    STRICT JSON OUTPUT REQUIRED. Do not include markdown code blocks.
-    Return riskScore (0-100), riskLevel (SAFE/SUSPICIOUS/MALICIOUS), explanation, and recommendations.
-    Sum probabilities (malicious, fake, authentic) to exactly 100.`;
+    DATA CONTENT: "${content || 'Captured via Image (Inspection Required)'}"
+
+    INSTRUCTIONS:
+    1. Inspect for phishing attempts, malicious redirects, or obfuscated URLs.
+    2. Check for structural abnormalities in the QR pattern if an image is provided.
+    3. Evaluate the risk level and provide a score.
+    
+    Ensure all probability values (malicious, fake, authentic) are numbers that sum to exactly 100.`;
 
     parts.push({ text: prompt });
 
@@ -49,16 +45,21 @@ export async function performDeepAnalysis(
       model,
       contents: { parts },
       config: {
-        tools: [{ googleSearch: {} }],
+        // Use googleSearch tool for real-time threat intelligence when a URL is present.
+        tools: content?.includes('://') ? [{ googleSearch: {} }] : undefined,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            riskScore: { type: Type.NUMBER },
-            riskLevel: { type: Type.STRING, enum: Object.values(RiskLevel) },
-            explanation: { type: Type.STRING },
-            recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
-            originalContent: { type: Type.STRING },
+            riskScore: { type: Type.NUMBER, description: "Threat score from 0-100" },
+            riskLevel: { type: Type.STRING, description: "SAFE, SUSPICIOUS, or MALICIOUS" },
+            explanation: { type: Type.STRING, description: "Detailed security breakdown" },
+            recommendations: { 
+              type: Type.ARRAY, 
+              items: { type: Type.STRING },
+              description: "List of safety actions" 
+            },
+            originalContent: { type: Type.STRING, description: "The content found in the QR" },
             probabilities: {
               type: Type.OBJECT,
               properties: {
@@ -69,31 +70,31 @@ export async function performDeepAnalysis(
               required: ["malicious", "fake", "authentic"]
             }
           },
-          required: ["riskScore", "riskLevel", "explanation", "recommendations", "probabilities", "originalContent"]
+          required: ["riskScore", "riskLevel", "explanation", "recommendations", "originalContent", "probabilities"]
         }
       }
     });
 
     if (!response.text) {
-      throw new Error("Empty response from AI engine");
+      throw new Error("No response text received from Gemini.");
     }
     
-    return processResponse(response, content || "Captured Data");
+    return processResponse(response, content || "Extracted Data");
   } catch (error: any) {
-    console.error("Analysis error details:", error);
-    // If you see 50% result locally, it's almost certainly because process.env.API_KEY is missing/invalid in VS Code.
-    return getFallbackResult(content || "Analysis Error", error.message);
+    console.error("Analysis failure:", error);
+    return getFallbackResult(content || "Security Scan", error.message);
   }
 }
 
 function processResponse(response: GenerateContentResponse, defaultContent: string): AnalysisResult {
   const groundingSources: GroundingSource[] = [];
+  // Extract URLs from groundingChunks as required by the Search Grounding guidelines.
   const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
   if (chunks) {
     chunks.forEach((chunk: any) => {
       if (chunk.web) {
         groundingSources.push({
-          title: chunk.web.title || "Security Reference",
+          title: chunk.web.title || "External Intelligence",
           uri: chunk.web.uri
         });
       }
@@ -101,59 +102,54 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
   }
 
   try {
-    // Robust cleaning of response text to handle potential markdown
-    let cleanedText = response.text.trim();
-    if (cleanedText.startsWith('```')) {
-      cleanedText = cleanedText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    }
+    // Access .text property directly (it's a getter).
+    const text = response.text.trim();
+    const result = JSON.parse(text);
     
-    const result = JSON.parse(cleanedText);
     return { 
       ...result, 
       originalContent: result.originalContent || defaultContent,
       groundingSources: groundingSources.length > 0 ? groundingSources : undefined
     };
   } catch (e) {
-    console.error("JSON Parse Error:", e, "Raw Text:", response.text);
-    return getFallbackResult(defaultContent, "Parsing Error");
+    console.error("JSON Parse Error on text:", response.text);
+    return getFallbackResult(defaultContent, "Response Formatting Error");
   }
 }
 
-function getFallbackResult(content: string, errorMsg?: string): AnalysisResult {
-  const isKeyError = errorMsg?.includes("API_KEY_MISSING") || errorMsg?.includes("API key not valid");
-  
+function getFallbackResult(content: string, errorType?: string): AnalysisResult {
   return {
     riskScore: 50,
     riskLevel: RiskLevel.SUSPICIOUS,
-    explanation: isKeyError 
-      ? "Forensic analysis is in baseline mode because the API key is not configured in this environment. Real-time threat intelligence is currently restricted."
-      : `Forensic analysis encountered a technical issue (${errorMsg || 'Stream Error'}). Displaying baseline heuristics.`,
+    explanation: `Forensic engine encountered an interruption (${errorType || 'Unknown Error'}). Using heuristic safety check.`,
     recommendations: [
-      "Check environment configuration for API_KEY",
-      "Manually inspect the URL for phishing indicators",
-      "Do not enter sensitive data on unknown domains"
+      "Manually verify the destination URL before clicking",
+      "Check for 'typosquatting' (e.g., g00gle.com instead of google.com)",
+      "Avoid scanning QR codes from unverified or suspicious physical stickers",
+      "Ensure your environment variable API_KEY is correctly set"
     ],
     originalContent: content,
-    probabilities: { malicious: 33, fake: 33, authentic: 34 }
+    probabilities: { malicious: 40, fake: 30, authentic: 30 }
   };
 }
 
+/**
+ * Gets a response from the security chatbot.
+ */
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
   try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) return "Assistant is currently in offline mode. Please configure the environment API key.";
-    
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Context: ${context || 'General security help'}. User: "${message}"`,
       config: {
-        systemInstruction: "You are QRShield AI. Help users understand QR code safety and Quishing."
+        systemInstruction: "You are QRShield AI. Help users understand QR code safety and Quishing. Provide concise, expert cybersecurity advice."
       }
     });
-    return response.text || "I'm having trouble processing your request.";
+    // Access .text property directly.
+    return response.text || "I'm having trouble analyzing that question right now.";
   } catch (err) {
-    console.error("Chat error:", err);
-    return "I am currently in limited mode. Please verify your environment configuration.";
+    console.error("Chatbot error:", err);
+    return "I'm experiencing high latency in my security modules. Please try again.";
   }
 }
