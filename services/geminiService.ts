@@ -4,8 +4,8 @@ import { AnalysisResult, RiskLevel, GroundingSource } from "../types";
 
 function getAI() {
   const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === "undefined") {
-    throw new Error("MISSING_API_KEY");
+  if (!apiKey || apiKey === "undefined" || apiKey === "") {
+    throw new Error("API_KEY_NOT_CONFIGURED");
   }
   return new GoogleGenAI({ apiKey });
 }
@@ -17,10 +17,18 @@ export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
+  let ai;
   try {
-    const ai = getAI();
+    ai = getAI();
+  } catch (e: any) {
+    // Re-throw configuration errors so the UI can show the error state
+    throw new Error(e.message === "API_KEY_NOT_CONFIGURED" 
+      ? "API connection failed. Please ensure your environment is configured correctly." 
+      : "Security Service Initialization Error.");
+  }
+
+  try {
     const model = 'gemini-3-pro-preview';
-    
     let parts: any[] = [];
     
     if (base64Image) {
@@ -80,9 +88,20 @@ export async function performDeepAnalysis(
       }
     });
 
+    if (!response.text) {
+      return getFallbackResult(content || "Visual Data Captured");
+    }
+
     return processResponse(response, content || "Visual Data Captured");
-  } catch (error) {
+  } catch (error: any) {
     console.error("Analysis failed:", error);
+    // Throw error if it's a known API error (401, 403, 404, etc)
+    const errorMsg = error.message || "";
+    if (errorMsg.includes("401") || errorMsg.includes("403") || errorMsg.includes("API key")) {
+      throw new Error("Invalid API Credentials. Please check your setup.");
+    }
+    
+    // Fallback for logic errors or safety blocks
     return getFallbackResult(content || "Analysis Error");
   }
 }
@@ -113,7 +132,7 @@ function getFallbackResult(content: string): AnalysisResult {
   return {
     riskScore: 50,
     riskLevel: RiskLevel.SUSPICIOUS,
-    explanation: "Security verification timed out. Please review the content manually.",
+    explanation: "Security verification reached a safe limit. Content should be manually reviewed as a precaution.",
     recommendations: ["Do not click links if the source is unknown", "Verify the destination URL manually", "Ensure the QR code was provided by a trusted source"],
     originalContent: content,
     probabilities: { malicious: 33, fake: 33, authentic: 34 }
@@ -132,6 +151,6 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     });
     return response.text || "I encountered an error processing your query.";
   } catch {
-    return "Chat is currently offline.";
+    return "Chat is currently offline. Please ensure the system is configured.";
   }
 }

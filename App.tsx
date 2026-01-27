@@ -46,8 +46,13 @@ const App: React.FC = () => {
         analysis: result, 
         loading: false 
       }));
-    } catch (err) {
-      setState(prev => ({ ...prev, error: "Security Analysis failed to complete.", loading: false }));
+    } catch (err: any) {
+      console.error("UI Analysis Error:", err);
+      setState(prev => ({ 
+        ...prev, 
+        error: err.message || "Security Analysis failed to complete.", 
+        loading: false 
+      }));
     }
   };
 
@@ -68,7 +73,6 @@ const App: React.FC = () => {
           context.drawImage(img, 0, 0);
           const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(imageData.data, imageData.width, imageData.height);
-          // Automatic immediate analysis after processing the file
           runAnalysis(code ? code.data : null, base64);
         }
       };
@@ -130,7 +134,6 @@ const App: React.FC = () => {
               </label>
             </div>
 
-            {/* How it works Section */}
             <div className="pt-16 border-t border-slate-800/50">
               <div className="text-center mb-12">
                 <h2 className="text-3xl font-black mb-2 uppercase tracking-tight">How it works</h2>
@@ -198,9 +201,10 @@ const App: React.FC = () => {
         {state.error && (
           <div className="text-center py-20 animate-in zoom-in">
             <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-8">
-              <i className="fas fa-exclamation-circle text-3xl text-rose-500"></i>
+              <i className="fas fa-exclamation-triangle text-3xl text-rose-500"></i>
             </div>
-            <h2 className="text-2xl font-bold mb-4">{state.error}</h2>
+            <h2 className="text-2xl font-bold mb-4">Analysis Failed</h2>
+            <p className="text-slate-400 mb-8 max-w-md mx-auto">{state.error}</p>
             <button onClick={resetState} className="px-10 py-4 bg-blue-600 rounded-2xl font-bold">Try Again</button>
           </div>
         )}
