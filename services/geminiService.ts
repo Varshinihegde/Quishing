@@ -52,9 +52,11 @@ export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
+  // If API_KEY is missing, we still try to proceed so the SDK throws a clear error message
+  // that we can catch and display gracefully in the Forensic Log.
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const model = 'gemini-3-pro-preview';
+    const model = 'gemini-3-flash-preview';
     
     let parts: any[] = [];
     if (base64Image) {
@@ -72,7 +74,6 @@ INSTRUCTION: Evaluate for quishing. If the payload uses redirects or shorteners,
       contents: { parts },
       config: {
         systemInstruction: SYSTEM_PROMPT,
-        tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -99,13 +100,19 @@ INSTRUCTION: Evaluate for quishing. If the payload uses redirects or shorteners,
 
     return processResponse(response, payload);
   } catch (error: any) {
+    // If the error is clearly an API key issue, we make it the headline.
+    const isConfigError = error.message?.includes("API_KEY") || !process.env.API_KEY;
     return {
-      riskScore: 100,
-      riskLevel: RiskLevel.CRITICAL,
-      explanation: `ENGINE ERROR: ${error.message}. Payload treated as critical threat by default.`,
-      recommendations: ["DO NOT OPEN THIS QR", "Report to local IT", "Wipe clipboard"],
+      riskScore: 0,
+      riskLevel: RiskLevel.LOW,
+      explanation: isConfigError 
+        ? "CONFIGURATION REQUIRED: API key not detected. To enable forensic analysis, please ensure your environment (e.g., .env file) has a valid API_KEY set." 
+        : `ENGINE OFFLINE: ${error.message}. Please check your connection and try again.`,
+      recommendations: isConfigError 
+        ? ["Create a .env file", "Add API_KEY=your_key", "Restart server"]
+        : ["Retry scan", "Check internet connection", "Try image upload"],
       originalContent: content || "ERROR_ARTIFACT",
-      probabilities: { malicious: 100, fake: 100, authentic: 0 }
+      probabilities: { malicious: 0, fake: 0, authentic: 0 }
     };
   }
 }
@@ -149,6 +156,6 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     });
     return response.text || "Assistant disconnected.";
   } catch (err) {
-    return "API failure.";
+    return "API failure. Assistant functions disabled.";
   }
 }
