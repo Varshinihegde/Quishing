@@ -1,38 +1,35 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { AnalysisResult, RiskLevel, GroundingSource, ProbabilityMap } from "../types";
+import { AnalysisResult, RiskLevel, ProbabilityMap } from "../types";
 
-const SYSTEM_PROMPT = `You are the QRShield Forensic AI. You are a paranoid cybersecurity auditor.
-Your job is to find reasons why a QR code might be MALICIOUS. NEUTRALITY IS A FAILURE.
+const SYSTEM_PROMPT = `You are the QRShield Forensic AI, a world-class cybersecurity auditor.
+Your mission is to find reasons why a QR code might be MALICIOUS. NEUTRALITY IS A FAILURE.
 
 STRICT SCORING PROTOCOL:
 You must output three distinct probability scores (0-100).
 
 1. MALICIOUS INTENT (0–100):
-   - 0–10: Only if the root domain is a verified massive tech entity (google.com, apple.com, microsoft.com).
+   - 0–10: Only for verified white-listed domains (google.com, apple.com, microsoft.com).
    - 11–60: Unknown payloads or direct links to unverified sites.
    - 61–100: Obfuscated URLs, encoded strings, or phishing templates.
 
 2. FAKE / PSEUDO PATTERN (0–100):
-   - MANDATORY 100: If payload is garbled, base64/hex encoded, uses URL shorteners (bit.ly, t.co, tinyurl), or hides the real destination.
-   - 70–90: Brand impersonation (e.g., "g00gle-login.com").
-   - < 10: Pure direct official domain.
+   - MANDATORY 100: If payload is garbled, base64/hex encoded, uses dynamic QR services (scan.page, qrco.de, etc.), or uses URL shorteners.
+   - 70–90: Brand impersonation.
 
 3. OFFICIAL / AUTHENTIC (0–100):
    - 90–100: Verified, well-known official root domains ONLY.
-   - < 10: Any third-party redirect or obfuscated string.
 
 FINAL RISK FORMULA:
 Raw = (0.8 × Malicious) + (0.7 × Fake) − (0.5 × Authentic)
 Final % = Clamp(Raw * 1.3, 0, 100)
 
-Your response must be JSON only. Treat ANY obfuscated or short URL as a 100% Critical threat.`;
+Your response must be JSON only. Treat ANY dynamic redirect as a critical threat.`;
 
 function applyHeuristicOverrides(probs: ProbabilityMap, content: string): ProbabilityMap {
   const badPatterns = [
-    'bit.ly', 't.co', 'tinyurl', 'is.gd', 'buff.ly', 'adf.ly', 'bit.do', 'mcaf.ee',
-    'base64', 'data:', 'javascript:', 'upi://', 'target=', 'redirect=', 'login',
-    'verify', 'account', 'secure', 'billing', 'update'
+    'bit.ly', 't.co', 'tinyurl', 'is.gd', 'scan.page', 'qrco.de', 'qr-code-generator',
+    'base64', 'data:', 'javascript:', 'upi://', 'target=', 'redirect=', 'login'
   ];
   
   const contentLower = content.toLowerCase();
@@ -40,7 +37,7 @@ function applyHeuristicOverrides(probs: ProbabilityMap, content: string): Probab
   
   if (hasBadPattern) {
     return {
-      malicious: Math.max(probs.malicious, 90),
+      malicious: Math.max(probs.malicious, 85),
       fake: 100,
       authentic: Math.min(probs.authentic, 5)
     };
@@ -52,8 +49,6 @@ export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
-  // If API_KEY is missing, we still try to proceed so the SDK throws a clear error message
-  // that we can catch and display gracefully in the Forensic Log.
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = 'gemini-3-flash-preview';
@@ -66,8 +61,8 @@ export async function performDeepAnalysis(
 
     const payload = content || "HIDDEN_IMAGE_DATA";
     parts.push({ text: `FORENSIC ANALYSIS REQUEST:
-PAYLOAD: "${payload.substring(0, 2000)}"
-INSTRUCTION: Evaluate for quishing. If the payload uses redirects or shorteners, set Fake Pattern to 100. Be ruthless.` });
+PAYLOAD: "${payload}"
+INSTRUCTION: Evaluate for quishing. Dynamic redirects are high-risk.` });
 
     const response = await ai.models.generateContent({
       model,
@@ -100,19 +95,14 @@ INSTRUCTION: Evaluate for quishing. If the payload uses redirects or shorteners,
 
     return processResponse(response, payload);
   } catch (error: any) {
-    // If the error is clearly an API key issue, we make it the headline.
-    const isConfigError = error.message?.includes("API_KEY") || !process.env.API_KEY;
+    console.error("Analysis failed:", error);
     return {
-      riskScore: 0,
-      riskLevel: RiskLevel.LOW,
-      explanation: isConfigError 
-        ? "CONFIGURATION REQUIRED: API key not detected. To enable forensic analysis, please ensure your environment (e.g., .env file) has a valid API_KEY set." 
-        : `ENGINE OFFLINE: ${error.message}. Please check your connection and try again.`,
-      recommendations: isConfigError 
-        ? ["Create a .env file", "Add API_KEY=your_key", "Restart server"]
-        : ["Retry scan", "Check internet connection", "Try image upload"],
-      originalContent: content || "ERROR_ARTIFACT",
-      probabilities: { malicious: 0, fake: 0, authentic: 0 }
+      riskScore: 100,
+      riskLevel: RiskLevel.CRITICAL,
+      explanation: `FORENSIC ENGINE ERROR: ${error.message || "Unknown Failure"}. As a security precaution, this payload is classified as CRITICAL until manual verification.`,
+      recommendations: ["DO NOT OPEN", "Report to security team", "Wipe browser cache"],
+      originalContent: content || "Artifact corrupted",
+      probabilities: { malicious: 100, fake: 100, authentic: 0 }
     };
   }
 }
@@ -139,8 +129,8 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
   return { 
     riskScore: finalScore,
     riskLevel: level,
-    explanation: raw.expert_assessment || "No log generated.",
-    recommendations: raw.recommended_actions || ["Exercise caution."],
+    explanation: raw.expert_assessment || "Automated scan complete.",
+    recommendations: raw.recommended_actions || ["Stay vigilant."],
     originalContent: defaultContent,
     probabilities: probs
   };
@@ -152,10 +142,10 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Context: ${context || 'General'}. Query: "${message}"`,
-      config: { systemInstruction: "You are the QRShield Guardian. Be direct." }
+      config: { systemInstruction: "You are the QRShield Guardian." }
     });
-    return response.text || "Assistant disconnected.";
+    return response.text || "No response.";
   } catch (err) {
-    return "API failure. Assistant functions disabled.";
+    return "Service error.";
   }
 }

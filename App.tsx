@@ -50,7 +50,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       setState(prev => ({ 
         ...prev, 
-        error: "Critical engine error. Forensic module failed to initialize.", 
+        error: "Forensic engine failure. Analysis aborted.", 
         loading: false 
       }));
     }
@@ -82,8 +82,6 @@ const App: React.FC = () => {
     e.target.value = '';
   };
 
-  const isConfigRequired = state.analysis?.explanation.includes("CONFIGURATION REQUIRED");
-
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-blue-500/30">
       <div className="fixed inset-0 pointer-events-none z-0">
@@ -103,10 +101,8 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center space-x-4">
              <div className="hidden md:flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800">
-                <div className={`w-2 h-2 rounded-full ${!process.env.API_KEY ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`}></div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  {!process.env.API_KEY ? 'Config Needed' : 'Engine Ready'}
-                </span>
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Engine Ready</span>
              </div>
              <button 
                 onClick={() => chatbotRef.current?.open()}
@@ -211,7 +207,7 @@ const App: React.FC = () => {
                       <i className="fas fa-file-waveform"></i>
                       <span>Forensic Log</span>
                     </h3>
-                    <p className={`leading-relaxed mb-10 text-lg font-medium ${state.analysis.riskLevel === RiskLevel.CRITICAL || isConfigRequired ? 'text-rose-400' : 'text-slate-300'}`}>
+                    <p className={`leading-relaxed mb-10 text-lg font-medium ${state.analysis.riskLevel === RiskLevel.CRITICAL ? 'text-rose-400' : 'text-slate-300'}`}>
                       {state.analysis.explanation}
                     </p>
                     
@@ -227,12 +223,12 @@ const App: React.FC = () => {
                   <div className="bg-slate-900/40 p-10 rounded-[3rem] border border-slate-800/50 shadow-2xl">
                     <h3 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center space-x-3 text-emerald-400">
                       <i className="fas fa-user-shield"></i>
-                      <span>{isConfigRequired ? 'Resolution Steps' : 'Safety Protocol'}</span>
+                      <span>Safety Protocol</span>
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {state.analysis.recommendations.map((rec, i) => (
                         <div key={i} className="flex items-start space-x-4 p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
-                          <i className={`fas ${isConfigRequired ? 'fa-circle-chevron-right text-rose-500/50' : 'fa-shield-halved text-emerald-500/50'} mt-1`}></i>
+                          <i className="fas fa-shield-halved text-emerald-500/50 mt-1"></i>
                           <span className="text-sm text-slate-300 font-bold leading-relaxed">{rec}</span>
                         </div>
                       ))}
