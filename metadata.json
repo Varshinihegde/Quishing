@@ -1,6 +1,6 @@
 {
-  "name": "QRShield - AI Quishing Forensics",
-  "description": "High-fidelity QR code security analyzer that detects phishing and malicious redirects using Gemini AI.",
+  "name": "QRShield - Local Forensic Analyzer",
+  "description": "High-fidelity QR code security analyzer that detects phishing and malicious redirects using a high-performance local heuristics engine.",
   "requestFramePermissions": [
     "camera"
   ]

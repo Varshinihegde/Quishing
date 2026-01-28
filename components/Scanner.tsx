@@ -15,7 +15,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onDeepScan, onCancel }) => {
   const [cameraReady, setCameraReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("Initializing Optical Modules...");
+  const [statusMessage, setStatusMessage] = useState("Initializing Sensors...");
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -31,7 +31,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onDeepScan, onCancel }) => {
   const startCamera = useCallback(async () => {
     setError(null);
     setCameraReady(false);
-    setStatusMessage("Requesting Camera Permission...");
+    setStatusMessage("Requesting Hardware Access...");
     stopCamera();
 
     try {
@@ -53,14 +53,14 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onDeepScan, onCancel }) => {
         videoRef.current.onloadedmetadata = () => {
           videoRef.current?.play().then(() => {
             setCameraReady(true);
-            setStatusMessage("Feed Active");
+            setStatusMessage("Feed Operational");
           }).catch(() => {
-            setError("Playback failed. Please interact with the page and retry.");
+            setError("Playback blocked by browser policy.");
           });
         };
       }
     } catch (err: any) {
-      setError("Hardware access denied. Please enable camera permissions in your browser settings.");
+      setError("Camera access denied. Please verify system permissions.");
       setCameraReady(false);
     }
   }, [stopCamera]);
@@ -97,90 +97,90 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onDeepScan, onCancel }) => {
   };
 
   return (
-    <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto w-full px-4">
-      <div className="w-full aspect-[4/3] bg-slate-950 rounded-[2rem] overflow-hidden relative border-4 border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex items-center justify-center group">
+    <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-700 max-w-3xl mx-auto w-full px-4">
+      <div className="w-full aspect-video bg-slate-950 rounded-[3rem] overflow-hidden relative border-8 border-slate-800 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] flex items-center justify-center group">
         
         {/* Scanning Laser Animation */}
         {cameraReady && (
           <div className="absolute inset-0 z-20 pointer-events-none">
-            <div className="w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent shadow-[0_0_15px_rgba(59,130,246,0.8)] absolute animate-scan-line"></div>
+            <div className="w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent shadow-[0_0_20px_rgba(59,130,246,1)] absolute animate-scan-line"></div>
           </div>
         )}
 
         {!cameraReady && !error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 z-30">
-            <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-            <p className="text-slate-500 font-mono text-xs uppercase tracking-[0.2em]">{statusMessage}</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 z-30 backdrop-blur-sm">
+            <div className="w-14 h-14 border-[3px] border-blue-500/10 border-t-blue-500 rounded-full animate-spin mb-6"></div>
+            <p className="text-slate-500 font-mono text-[10px] uppercase tracking-[0.4em] font-black">{statusMessage}</p>
           </div>
         )}
 
         {error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-900/95 z-40 backdrop-blur-md">
-            <div className="bg-rose-500/10 p-4 rounded-full mb-4">
-              <i className="fas fa-video-slash text-rose-500 text-3xl"></i>
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center bg-slate-900/98 z-40 backdrop-blur-xl">
+            <div className="bg-rose-500/10 p-6 rounded-3xl mb-6">
+              <i className="fas fa-video-slash text-rose-500 text-4xl"></i>
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Sensor Error</h3>
-            <p className="text-sm text-slate-400 mb-8 leading-relaxed">{error}</p>
+            <h3 className="text-3xl font-black text-white mb-4 italic uppercase tracking-tighter">Sensor Error</h3>
+            <p className="text-sm text-slate-400 mb-10 leading-relaxed font-medium">{error}</p>
             <button 
               onClick={startCamera} 
-              className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all border border-slate-700"
+              className="px-10 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black uppercase tracking-widest transition-all border border-slate-700 active:scale-95"
             >
-              Retry Connection
+              Retry Handshake
             </button>
           </div>
         )}
 
         <video 
           ref={videoRef} 
-          className={`w-full h-full object-cover transition-opacity duration-700 ${cameraReady ? 'opacity-100' : 'opacity-0'}`} 
+          className={`w-full h-full object-cover transition-opacity duration-1000 ${cameraReady ? 'opacity-100' : 'opacity-0'}`} 
           autoPlay 
           muted 
           playsInline 
         />
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* Viewfinder Overlay */}
+        {/* HUD Viewfinder Overlay */}
         {cameraReady && (
-          <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-             <div className="w-2/3 aspect-square border-2 border-white/10 rounded-3xl relative">
-                <div className="absolute -top-1 -left-1 w-12 h-12 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl"></div>
-                <div className="absolute -top-1 -right-1 w-12 h-12 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl"></div>
-                <div className="absolute -bottom-1 -left-1 w-12 h-12 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl"></div>
-                <div className="absolute -bottom-1 -right-1 w-12 h-12 border-b-4 border-r-4 border-blue-500 rounded-br-2xl"></div>
+          <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center p-10">
+             <div className="w-full h-full border-[1px] border-white/5 rounded-[2rem] relative">
+                <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-blue-600 rounded-tl-[1.5rem] shadow-[-4px_-4px_10px_rgba(37,99,235,0.2)]"></div>
+                <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-blue-600 rounded-tr-[1.5rem] shadow-[4px_-4px_10px_rgba(37,99,235,0.2)]"></div>
+                <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-blue-600 rounded-bl-[1.5rem] shadow-[-4px_4px_10px_rgba(37,99,235,0.2)]"></div>
+                <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-blue-600 rounded-br-[1.5rem] shadow-[4px_4px_10px_rgba(37,99,235,0.2)]"></div>
                 
-                {/* Visual noise/grid effect */}
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03]"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 opacity-20 border border-white rounded-full"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)]"></div>
              </div>
           </div>
         )}
       </div>
 
-      <div className="mt-10 flex flex-col sm:flex-row items-center gap-4 w-full">
+      <div className="mt-12 flex flex-col sm:flex-row items-center gap-6 w-full">
         <button 
           onClick={onCancel} 
-          className="w-full sm:w-auto px-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl font-bold transition-all border border-slate-700"
+          className="w-full sm:w-auto px-10 py-5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-3xl font-black uppercase tracking-widest text-xs transition-all border border-slate-700"
         >
-          Abort Scan
+          Cancel
         </button>
         <button 
           onClick={handleCapture}
           disabled={!cameraReady || isCapturing}
-          className="flex-1 w-full px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all shadow-[0_10px_30px_rgba(37,99,235,0.3)] flex items-center justify-center space-x-3 disabled:opacity-50 group active:scale-[0.98]"
+          className="flex-1 w-full px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-3xl font-black uppercase tracking-widest text-xs transition-all shadow-2xl shadow-blue-600/20 flex items-center justify-center space-x-4 disabled:opacity-50 group active:scale-[0.97]"
         >
-          <i className="fas fa-fingerprint text-xl group-hover:scale-110 transition-transform"></i>
-          <span>Initialize Forensic AI Scan</span>
+          <i className="fas fa-microchip text-xl group-hover:rotate-12 transition-transform"></i>
+          <span>Capture and Run Forensics</span>
         </button>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes scan-line {
           0% { top: 0%; opacity: 0; }
-          5% { opacity: 1; }
-          95% { opacity: 1; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
           100% { top: 100%; opacity: 0; }
         }
         .animate-scan-line {
-          animation: scan-line 3s linear infinite;
+          animation: scan-line 2.5s linear infinite;
         }
       `}} />
     </div>

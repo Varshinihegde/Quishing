@@ -1,6 +1,5 @@
 
 import React from 'react';
-import Chatbot from './Chatbot';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -40,10 +39,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onHomeClick }) => {
       </main>
 
       <footer className="border-t border-slate-800 bg-slate-900/50 py-6 text-center text-slate-500 text-sm">
-        <p>© 2024 QRShield Security Analyzer • Stay Safe from Quishing</p>
+        <p>© 2024 QRShield Security Analyzer • Advanced Local Forensics</p>
       </footer>
-
-      <Chatbot />
     </div>
   );
 };
