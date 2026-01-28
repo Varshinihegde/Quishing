@@ -5,6 +5,7 @@ import { performDeepAnalysis } from './services/geminiService';
 import Scanner from './components/Scanner';
 import RiskGauge from './components/RiskGauge';
 import Chatbot, { ChatbotHandle } from './components/Chatbot';
+import ProbabilityBreakdown from './components/ProbabilityBreakdown';
 import jsQR from 'jsqr';
 
 const App: React.FC = () => {
@@ -126,8 +127,8 @@ const App: React.FC = () => {
                 <span className="text-transparent bg-clip-text bg-gradient-to-b from-blue-400 to-blue-700">Digital Identity.</span>
               </h1>
               <p className="text-lg text-slate-400 max-w-xl mx-auto leading-relaxed">
-                Analyze QR codes with real-time threat intelligence. We detect phishing, 
-                malicious redirects, and deceptive patterns instantly.
+                High-fidelity QR code security analyzer that detects phishing,
+                malicious redirects, and deceptive patterns using Gemini AI.
               </p>
             </div>
 
@@ -141,7 +142,7 @@ const App: React.FC = () => {
                     <i className="fas fa-camera text-2xl text-white"></i>
                   </div>
                   <h3 className="text-2xl font-bold mb-2">Live Analysis</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">Use your camera to scan physical QR codes with AI-driven overlay detection.</p>
+                  <p className="text-slate-500 text-sm leading-relaxed">Use your camera to scan physical QR codes with real-time AI-driven overlay detection.</p>
                 </div>
               </button>
 
@@ -152,7 +153,7 @@ const App: React.FC = () => {
                     <i className="fas fa-file-import text-2xl text-white"></i>
                   </div>
                   <h3 className="text-2xl font-bold mb-2">Image Forensics</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">Upload screenshots or photos for deep inspection of embedded URLs and metadata.</p>
+                  <p className="text-slate-500 text-sm leading-relaxed">Upload screenshots or photos for deep inspection of embedded URLs and deceptive metadata.</p>
                 </div>
               </label>
             </div>
@@ -174,12 +175,12 @@ const App: React.FC = () => {
                 <div className="relative">
                   <div className="w-24 h-24 border-4 border-slate-800 border-t-blue-500 rounded-full animate-spin"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <i className="fas fa-search-nodes text-blue-500 animate-pulse text-2xl"></i>
+                    <i className="fas fa-fingerprint text-blue-500 animate-pulse text-2xl"></i>
                   </div>
                 </div>
                 <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-bold tracking-tight">Processing Threat Vector...</h3>
-                  <p className="text-slate-500 font-mono text-xs uppercase tracking-widest">Accessing Google Cloud Intelligence</p>
+                  <h3 className="text-2xl font-bold tracking-tight">Extracting Threat Vectors...</h3>
+                  <p className="text-slate-500 font-mono text-xs uppercase tracking-widest">Applying Cybersecurity Logic & Search Grounding</p>
                 </div>
               </div>
             ) : state.error ? (
@@ -187,7 +188,7 @@ const App: React.FC = () => {
                 <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
                   <i className="fas fa-triangle-exclamation text-rose-500 text-2xl"></i>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-4">Core Engine Error</h3>
+                <h3 className="text-2xl font-bold text-white mb-4">Forensic Engine Error</h3>
                 <p className="text-slate-400 mb-8 leading-relaxed">{state.error}</p>
                 <button onClick={resetState} className="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all">Return to Command Center</button>
               </div>
@@ -196,11 +197,15 @@ const App: React.FC = () => {
                 <div className="lg:col-span-4 space-y-6">
                   <RiskGauge score={state.analysis.riskScore} level={state.analysis.riskLevel} />
                   
+                  <div className="p-8 bg-slate-900/50 border border-slate-800/50 rounded-[2.5rem] backdrop-blur-md">
+                    <ProbabilityBreakdown probabilities={state.analysis.probabilities} />
+                  </div>
+
                   {state.base64Image && (
                     <div className="p-5 bg-slate-900 border border-slate-800 rounded-[2rem]">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-4">Optical Artifact</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-4">Scanned Artifact</span>
                       <div className="rounded-2xl overflow-hidden border border-slate-800">
-                        <img src={state.base64Image} alt="Scan Artifact" className="w-full h-auto brightness-90 contrast-125" />
+                        <img src={state.base64Image} alt="Scan Artifact" className="w-full h-auto brightness-90 contrast-110" />
                       </div>
                     </div>
                   )}
@@ -209,27 +214,30 @@ const App: React.FC = () => {
                 <div className="lg:col-span-8 space-y-8">
                   <section className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-800/50 backdrop-blur-sm">
                     <h3 className="text-xl font-bold mb-6 flex items-center space-x-3">
-                      <i className="fas fa-terminal text-blue-500"></i>
-                      <span>Forensic Summary</span>
+                      <i className="fas fa-shield-virus text-blue-500"></i>
+                      <span>Expert Assessment</span>
                     </h3>
                     <p className="text-slate-300 leading-relaxed mb-8">{state.analysis.explanation}</p>
                     
-                    <div className="p-5 bg-black/40 rounded-2xl border border-slate-800 font-mono text-xs break-all relative group">
-                      <span className="text-slate-600 block mb-2 uppercase tracking-tighter">Decoded Payload</span>
+                    <div className="p-5 bg-black/40 rounded-2xl border border-slate-800 font-mono text-xs break-all relative group overflow-hidden">
+                      <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:opacity-100 transition-opacity">
+                        <i className="fas fa-code"></i>
+                      </div>
+                      <span className="text-slate-600 block mb-2 uppercase tracking-tighter">Decoded Payload Content</span>
                       <span className="text-blue-400/90">{state.analysis.originalContent}</span>
                     </div>
                   </section>
 
                   <section className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-800/50 backdrop-blur-sm">
                     <h3 className="text-xl font-bold mb-6 flex items-center space-x-3">
-                      <i className="fas fa-list-check text-emerald-500"></i>
-                      <span>Security Protocols</span>
+                      <i className="fas fa-user-shield text-emerald-500"></i>
+                      <span>Safety Protocol Checklist</span>
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {state.analysis.recommendations.map((rec, i) => (
-                        <div key={i} className="flex items-start space-x-3 p-4 bg-white/5 rounded-2xl border border-white/5">
-                          <i className="fas fa-check-circle text-emerald-500 mt-1 text-sm"></i>
-                          <span className="text-sm text-slate-300 leading-tight">{rec}</span>
+                        <div key={i} className="flex items-start space-x-3 p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
+                          <i className="fas fa-circle-check text-emerald-500 mt-1 text-sm"></i>
+                          <span className="text-sm text-slate-300 leading-snug">{rec}</span>
                         </div>
                       ))}
                     </div>
@@ -238,8 +246,8 @@ const App: React.FC = () => {
                   {state.analysis.groundingSources && (
                     <section className="bg-blue-600/5 p-8 rounded-[2.5rem] border border-blue-500/10">
                       <h3 className="text-xl font-bold mb-6 flex items-center space-x-3">
-                        <i className="fas fa-satellite text-blue-400"></i>
-                        <span>Threat Intel Feed</span>
+                        <i className="fas fa-globe text-blue-400"></i>
+                        <span>Threat Intelligence Links</span>
                       </h3>
                       <div className="flex flex-wrap gap-3">
                         {state.analysis.groundingSources.map((source, i) => (
@@ -251,7 +259,7 @@ const App: React.FC = () => {
                             className="px-5 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-xl text-xs font-bold text-blue-400 transition-all flex items-center space-x-3 group"
                           >
                             <span>{source.title}</span>
-                            <i className="fas fa-arrow-up-right-from-square text-[10px] group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform"></i>
+                            <i className="fas fa-external-link text-[10px] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
                           </a>
                         ))}
                       </div>
@@ -261,9 +269,9 @@ const App: React.FC = () => {
                   <div className="flex justify-center pt-6">
                     <button 
                       onClick={resetState}
-                      className="px-12 py-4 bg-white text-black hover:bg-slate-200 rounded-full font-black transition-all transform hover:scale-105 active:scale-95"
+                      className="px-12 py-4 bg-blue-600 text-white hover:bg-blue-500 rounded-full font-black transition-all transform hover:scale-105 active:scale-95 shadow-xl shadow-blue-600/20"
                     >
-                      New Security Scan
+                      Analyze Another QR
                     </button>
                   </div>
                 </div>
@@ -281,7 +289,7 @@ const App: React.FC = () => {
           </div>
           <div className="text-center md:text-left">
             <p className="text-sm font-medium">Empowering users against Quishing since 2024</p>
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] mt-1">Enterprise Grade Forensics Engine</p>
+            <p className="text-[10px] font-mono uppercase tracking-[0.3em] mt-1">Enterprise-Grade Forensics Engine</p>
           </div>
           <div className="flex space-x-6">
             <i className="fab fa-github text-xl hover:text-white cursor-pointer transition-colors"></i>
