@@ -1,8 +1,7 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, RiskLevel, ProbabilityMap } from "../types";
 
-const SYSTEM_PROMPT = `You are the QRShield Forensic AI, a specialized cybersecurity auditor for "Quishing" (QR Phishing).
+const SYSTEM_PROMPT = `You are the QRShield Forensic AI, a world-class cybersecurity auditor specializing in "Quishing" (QR Phishing).
 Your mission is to perform deep-packet inspection of QR payloads. NEUTRALITY IS A FAILURE.
 
 STRICT SCORING PROTOCOL:
@@ -99,8 +98,8 @@ INSTRUCTION: Evaluate for quishing. Redirects and cloaked URLs are considered de
     return {
       riskScore: 100,
       riskLevel: RiskLevel.CRITICAL,
-      explanation: `ENGINE OFFLINE: ${error.message || "Failed to establish secure connection"}. If you are running locally, please verify that your .env file contains a valid API_KEY.`,
-      recommendations: ["Manually audit the URL", "Do not enter credentials", "Check your local configuration"],
+      explanation: `FORENSIC ENGINE ERROR: ${error.message || "Connection failure"}. If you are seeing this, please verify that your API_KEY is correctly set in your environment.`,
+      recommendations: ["DO NOT OPEN the URL", "Report this QR to security", "Manually inspect for brand mimicry"],
       originalContent: content || "Artifact corrupted",
       probabilities: { malicious: 100, fake: 100, authentic: 0 }
     };
@@ -129,8 +128,8 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
   return { 
     riskScore: finalScore,
     riskLevel: level,
-    explanation: raw.expert_assessment || "Automated scan complete. Risk vectors mapped.",
-    recommendations: raw.recommended_actions || ["Exercise extreme caution with this payload."],
+    explanation: raw.expert_assessment || "Scan complete.",
+    recommendations: raw.recommended_actions || ["Exercise caution."],
     originalContent: defaultContent,
     probabilities: probs
   };
@@ -141,11 +140,11 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Context: ${context || 'General security help'}. Query: "${message}"`,
-      config: { systemInstruction: "You are the QRShield Guardian. Provide direct security advice." }
+      contents: `Context: ${context || 'General help'}. Query: "${message}"`,
+      config: { systemInstruction: "You are the QRShield Guardian." }
     });
-    return response.text || "I'm sorry, I couldn't generate a response.";
+    return response.text || "Assistant unavailable.";
   } catch (err) {
-    return "The assistant is currently offline. Please check your connection.";
+    return "The assistant is currently offline.";
   }
 }

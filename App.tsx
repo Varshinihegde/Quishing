@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { QRState, RiskLevel } from './types';
 import { performDeepAnalysis } from './services/geminiService';
@@ -50,7 +49,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       setState(prev => ({ 
         ...prev, 
-        error: "Forensic engine failure. Analysis aborted.", 
+        error: "Forensic engine failure. Please try again.", 
         loading: false 
       }));
     }
