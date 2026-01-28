@@ -2,34 +2,34 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, RiskLevel, ProbabilityMap } from "../types";
 
-const SYSTEM_PROMPT = `You are the QRShield Forensic AI, a world-class cybersecurity auditor.
-Your mission is to find reasons why a QR code might be MALICIOUS. NEUTRALITY IS A FAILURE.
+const SYSTEM_PROMPT = `You are the QRShield Forensic AI, a specialized cybersecurity auditor for "Quishing" (QR Phishing).
+Your mission is to perform deep-packet inspection of QR payloads. NEUTRALITY IS A FAILURE.
 
 STRICT SCORING PROTOCOL:
 You must output three distinct probability scores (0-100).
 
 1. MALICIOUS INTENT (0–100):
-   - 0–10: Only for verified white-listed domains (google.com, apple.com, microsoft.com).
-   - 11–60: Unknown payloads or direct links to unverified sites.
-   - 61–100: Obfuscated URLs, encoded strings, or phishing templates.
+   - 0–10: Only for verified white-listed official root domains.
+   - 61–100: Obfuscated URLs, encoded strings, or suspicious redirect chains.
 
 2. FAKE / PSEUDO PATTERN (0–100):
-   - MANDATORY 100: If payload is garbled, base64/hex encoded, uses dynamic QR services (scan.page, qrco.de, etc.), or uses URL shorteners.
-   - 70–90: Brand impersonation.
+   - MANDATORY 100: If the payload is a dynamic QR redirect (e.g., scan.page, qrco.de, me-qr.com) or a URL shortener. These are considered "cloaked" destinations because the final target can be changed at any time.
+   - 70–90: Brand mimicry in subdomains.
 
 3. OFFICIAL / AUTHENTIC (0–100):
    - 90–100: Verified, well-known official root domains ONLY.
 
 FINAL RISK FORMULA:
 Raw = (0.8 × Malicious) + (0.7 × Fake) − (0.5 × Authentic)
-Final % = Clamp(Raw * 1.3, 0, 100)
+Final % = Clamp(Raw * 1.35, 0, 100)
 
-Your response must be JSON only. Treat ANY dynamic redirect as a critical threat.`;
+Your response must be JSON only. Treat ANY dynamic redirect as a high-risk security threat.`;
 
 function applyHeuristicOverrides(probs: ProbabilityMap, content: string): ProbabilityMap {
   const badPatterns = [
-    'bit.ly', 't.co', 'tinyurl', 'is.gd', 'scan.page', 'qrco.de', 'qr-code-generator',
-    'base64', 'data:', 'javascript:', 'upi://', 'target=', 'redirect=', 'login'
+    'bit.ly', 't.co', 'tinyurl', 'is.gd', 'scan.page', 'qrco.de', 'me-qr.com', 
+    'qr-code-generator.com', 'flowcode.com', 'base64', 'data:', 'javascript:', 
+    'upi://', 'target=', 'redirect=', 'login', 'verify', 'update', 'secure'
   ];
   
   const contentLower = content.toLowerCase();
@@ -37,7 +37,7 @@ function applyHeuristicOverrides(probs: ProbabilityMap, content: string): Probab
   
   if (hasBadPattern) {
     return {
-      malicious: Math.max(probs.malicious, 85),
+      malicious: Math.max(probs.malicious, 80),
       fake: 100,
       authentic: Math.min(probs.authentic, 5)
     };
@@ -50,7 +50,7 @@ export async function performDeepAnalysis(
   base64Image: string | null
 ): Promise<AnalysisResult> {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
     const model = 'gemini-3-flash-preview';
     
     let parts: any[] = [];
@@ -59,10 +59,10 @@ export async function performDeepAnalysis(
       parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
     }
 
-    const payload = content || "HIDDEN_IMAGE_DATA";
+    const payload = content || "IMAGE_ONLY_PAYLOAD";
     parts.push({ text: `FORENSIC ANALYSIS REQUEST:
 PAYLOAD: "${payload}"
-INSTRUCTION: Evaluate for quishing. Dynamic redirects are high-risk.` });
+INSTRUCTION: Evaluate for quishing. Redirects and cloaked URLs are considered deceptive patterns.` });
 
     const response = await ai.models.generateContent({
       model,
@@ -95,12 +95,12 @@ INSTRUCTION: Evaluate for quishing. Dynamic redirects are high-risk.` });
 
     return processResponse(response, payload);
   } catch (error: any) {
-    console.error("Analysis failed:", error);
+    console.error("Forensic Analysis Error:", error);
     return {
       riskScore: 100,
       riskLevel: RiskLevel.CRITICAL,
-      explanation: `FORENSIC ENGINE ERROR: ${error.message || "Unknown Failure"}. As a security precaution, this payload is classified as CRITICAL until manual verification.`,
-      recommendations: ["DO NOT OPEN", "Report to security team", "Wipe browser cache"],
+      explanation: `ENGINE OFFLINE: ${error.message || "Failed to establish secure connection"}. If you are running locally, please verify that your .env file contains a valid API_KEY.`,
+      recommendations: ["Manually audit the URL", "Do not enter credentials", "Check your local configuration"],
       originalContent: content || "Artifact corrupted",
       probabilities: { malicious: 100, fake: 100, authentic: 0 }
     };
@@ -129,8 +129,8 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
   return { 
     riskScore: finalScore,
     riskLevel: level,
-    explanation: raw.expert_assessment || "Automated scan complete.",
-    recommendations: raw.recommended_actions || ["Stay vigilant."],
+    explanation: raw.expert_assessment || "Automated scan complete. Risk vectors mapped.",
+    recommendations: raw.recommended_actions || ["Exercise extreme caution with this payload."],
     originalContent: defaultContent,
     probabilities: probs
   };
@@ -138,14 +138,14 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
 
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Context: ${context || 'General'}. Query: "${message}"`,
-      config: { systemInstruction: "You are the QRShield Guardian." }
+      contents: `Context: ${context || 'General security help'}. Query: "${message}"`,
+      config: { systemInstruction: "You are the QRShield Guardian. Provide direct security advice." }
     });
-    return response.text || "No response.";
+    return response.text || "I'm sorry, I couldn't generate a response.";
   } catch (err) {
-    return "Service error.";
+    return "The assistant is currently offline. Please check your connection.";
   }
 }

@@ -127,7 +127,7 @@ const App: React.FC = () => {
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Scan Smart.</span>
               </h1>
               <p className="text-slate-400 text-lg max-w-xl mx-auto leading-relaxed">
-                Detect hidden malicious intent in QR codes. We analyze redirects, brand mimicry, and phishing patterns using Gemini Pro.
+                Detect hidden malicious intent in QR codes. We analyze redirects, brand mimicry, and phishing patterns using Gemini AI.
               </p>
             </div>
 
