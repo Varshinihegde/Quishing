@@ -25,27 +25,47 @@ export async function performDeepAnalysis(
       });
     }
 
-    const prompt = `Act as an elite Cybersecurity Forensic Analyst specializing in anti-phishing (Quishing).
-    
-    TASK: Deconstruct and analyze this QR code for malicious intent, deceptive routing, or structural anomalies.
-    
-    DATA CONTENT: "${content || 'Captured via Image (Perform Visual Forensics)'}"
+    const prompt = `Act as QRShield, a cybersecurity analysis system specialized in detecting QR-code–based phishing (Quishing) risks.
 
-    CRITICAL ANALYSIS CRITERIA:
-    1. URL Reputation: Check if the domain is a known phishing host, uses typosquatting, or leverages deceptive subdomains.
-    2. Redirection Chain: Detect URL shorteners (bit.ly, tinyurl) or multi-hop redirects.
-    3. Structural Forensics: If an image is provided, inspect the QR pattern for tampering or unusual encodings.
-    4. Contextual Risk: Is the content typical? (e.g., unexpected app download prompts, credential harvesting).
+SYSTEM CONSTRAINTS (MANDATORY):
+- You MUST NOT return the same risk percentage for different QR inputs unless the decoded content is identical.
+- You MUST NOT use default, midpoint, or placeholder values (such as 50%).
+- Every output MUST be derived from explicit, explainable signals found in the QR content or metadata.
+- If no strong malicious signal is found, you MUST return a LOW or MODERATE score, not a neutral midpoint.
+- The analysis MUST be deterministic: the same QR input always produces the same output.
+- If the QR content is unknown, obscure, or lacks clear trust signals, assign a baseline non-zero risk (e.g., 5-15%).
 
-    SCORING POLICY (STRICT):
-    - 0%: ONLY for clearly benign, well-known, and verified content (e.g., google.com, official government portals).
-    - 5-20% (LOW RISK): Default for unknown domains, unusual string lengths, random character sets, or non-URL data that lacks clear context.
-    - 21-70% (SUSPICIOUS): Shortened URLs, multi-hop redirects, unverified subdomains, or domains with low trust scores.
-    - 71-100% (MALICIOUS): Confirmed phishing, malware signatures, or high-confidence malicious routing.
-    
-    DETERMINISTIC RULE: If any weak indicator exists (e.g., obscure domain, unusual length), you MUST assign a non-zero risk score. Do not collapse local uncertainty to 0%. Be decisive.
-    
-    All probability values (malicious, fake, authentic) must sum to exactly 100.`;
+TASK:
+Analyze the QR code and compute a COMPOSITE RISK PERCENTAGE (0–100) representing how likely the QR code is unsafe or exploitable in a Quishing context.
+
+RISK SCORING MODEL (START FROM 0% AND ADD):
+
+URL & STRUCTURE SIGNALS:
+- URL shortener or QR-redirect service (scan.page, bit.ly, tinyurl): +30%
+- Third-party QR hosting platform hiding final destination: +20%
+- Long or complex URL (>70 characters): +10%
+- Randomized or obfuscated path/query strings: +15%
+- IP address instead of domain: +25%
+
+CONTENT & INTENT SIGNALS:
+- Login, credential, or verification request: +30%
+- Urgency or pressure language: +20%
+- Financial action or payment prompt: +20%
+
+TRUST REDUCTION SIGNALS (SUBTRACT):
+- HTTPS with well-known trusted domain: −20%
+- Standard UPI payment QR (upi://pay): −30%
+- Official brand domain with no redirection: −25%
+
+CLASSIFICATION LOGIC:
+- 0–15% → LOW
+- 16–40% → MODERATE
+- 41–70% → SUSPICIOUS
+- 71–100% → HIGH / CRITICAL
+
+SPECIAL RULE: If the QR code uses a legitimate but commonly abused QR service AND obscures the final destination, classify it as SUSPICIOUS even if no malware is detected.
+
+DATA CONTENT: "${content || 'Captured via Image (Perform Visual Forensics)'}"`;
 
     parts.push({ text: prompt });
 
@@ -58,26 +78,26 @@ export async function performDeepAnalysis(
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            riskScore: { type: Type.NUMBER, description: "Threat score from 0-100" },
-            riskLevel: { type: Type.STRING, description: "SAFE, SUSPICIOUS, or MALICIOUS" },
-            explanation: { type: Type.STRING, description: "Detailed security breakdown" },
-            recommendations: { 
+            risk_percentage: { type: Type.NUMBER, description: "Composite risk score (0-100)" },
+            risk_level: { type: Type.STRING, description: "LOW, MODERATE, SUSPICIOUS, HIGH, or CRITICAL" },
+            expert_assessment: { type: Type.STRING, description: "Professional cybersecurity analyst report" },
+            recommended_actions: { 
               type: Type.ARRAY, 
               items: { type: Type.STRING },
-              description: "List of safety actions" 
+              description: "Actionable safety advice" 
             },
             originalContent: { type: Type.STRING, description: "The content found in the QR" },
-            probabilities: {
+            probability_breakdown: {
               type: Type.OBJECT,
               properties: {
-                malicious: { type: Type.NUMBER },
-                fake: { type: Type.NUMBER },
-                authentic: { type: Type.NUMBER }
+                malicious_intent: { type: Type.NUMBER },
+                fake_or_pseudo_pattern: { type: Type.NUMBER },
+                official_or_authentic: { type: Type.NUMBER }
               },
-              required: ["malicious", "fake", "authentic"]
+              required: ["malicious_intent", "fake_or_pseudo_pattern", "official_or_authentic"]
             }
           },
-          required: ["riskScore", "riskLevel", "explanation", "recommendations", "originalContent", "probabilities"]
+          required: ["risk_percentage", "risk_level", "expert_assessment", "recommended_actions", "originalContent", "probability_breakdown"]
         }
       }
     });
@@ -108,11 +128,19 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
   }
 
   try {
-    const result = JSON.parse(response.text.trim());
+    const raw = JSON.parse(response.text.trim());
     return { 
-      ...result, 
-      originalContent: result.originalContent || defaultContent,
-      groundingSources: groundingSources.length > 0 ? groundingSources : undefined
+      riskScore: raw.risk_percentage,
+      riskLevel: raw.risk_level as RiskLevel,
+      explanation: raw.expert_assessment,
+      recommendations: raw.recommended_actions,
+      originalContent: raw.originalContent || defaultContent,
+      groundingSources: groundingSources.length > 0 ? groundingSources : undefined,
+      probabilities: {
+        malicious: raw.probability_breakdown.malicious_intent,
+        fake: raw.probability_breakdown.fake_or_pseudo_pattern,
+        authentic: raw.probability_breakdown.official_or_authentic
+      }
     };
   } catch (e) {
     return getErrorResult(defaultContent, "Response Parse Error");
@@ -121,17 +149,16 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
 
 function getErrorResult(content: string, errorType: string): AnalysisResult {
   return {
-    riskScore: 10, // Default to a non-zero "Unknown" risk on system error
-    riskLevel: RiskLevel.SUSPICIOUS, 
-    explanation: `SYSTEM NOTICE: Forensic scan interrupted by a processing error (${errorType}). Content remains unverified. Extreme caution is advised as the system could not rule out threats.`,
+    riskScore: 15,
+    riskLevel: RiskLevel.MODERATE, 
+    explanation: `SYSTEM NOTICE: Forensic scan interrupted by a processing error (${errorType}). Content remains unverified. The lack of a confirmed trust signature requires assigning a MODERATE risk level until re-scanned.`,
     recommendations: [
       "Check your network connection and try again",
-      "Do not open the link if you do not recognize the sender",
       "Manually inspect the URL for subtle typos (typosquatting)",
       "If this is a payment request, verify via a separate official channel"
     ],
     originalContent: content,
-    probabilities: { malicious: 10, fake: 10, authentic: 80 }
+    probabilities: { malicious: 15, fake: 15, authentic: 70 }
   };
 }
 

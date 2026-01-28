@@ -10,9 +10,11 @@ interface RiskGaugeProps {
 const RiskGauge: React.FC<RiskGaugeProps> = ({ score, level }) => {
   const getColors = () => {
     switch(level) {
-      case RiskLevel.SAFE: return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 shadow-emerald-500/20';
+      case RiskLevel.LOW: return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 shadow-emerald-500/20';
+      case RiskLevel.MODERATE: return 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10 shadow-cyan-500/20';
       case RiskLevel.SUSPICIOUS: return 'text-amber-400 border-amber-500/30 bg-amber-500/10 shadow-amber-500/20';
-      case RiskLevel.MALICIOUS: return 'text-rose-400 border-rose-500/30 bg-rose-500/10 shadow-rose-500/20';
+      case RiskLevel.HIGH: return 'text-orange-400 border-orange-500/30 bg-orange-500/10 shadow-orange-500/20';
+      case RiskLevel.CRITICAL: return 'text-rose-400 border-rose-500/30 bg-rose-500/10 shadow-rose-500/20';
       default: return 'text-slate-400 border-slate-500/30 bg-slate-500/10 shadow-slate-500/20';
     }
   };
@@ -20,7 +22,7 @@ const RiskGauge: React.FC<RiskGaugeProps> = ({ score, level }) => {
   const colors = getColors();
 
   return (
-    <div className={`p-8 rounded-[2.5rem] border text-center shadow-lg transition-all ${colors}`}>
+    <div className={`p-8 rounded-[2.5rem] border text-center shadow-lg transition-all duration-700 ${colors}`}>
       <div className="relative inline-block mb-4">
         <svg className="w-40 h-40 transform -rotate-90">
           <circle

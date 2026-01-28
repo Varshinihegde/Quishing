@@ -1,8 +1,10 @@
 
 export enum RiskLevel {
-  SAFE = 'SAFE',
+  LOW = 'LOW',
+  MODERATE = 'MODERATE',
   SUSPICIOUS = 'SUSPICIOUS',
-  MALICIOUS = 'MALICIOUS'
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
 }
 
 export interface GroundingSource {
