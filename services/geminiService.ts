@@ -1,5 +1,5 @@
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { AnalysisResult, RiskLevel, ProbabilityMap } from "../types";
+import { GoogleGenAI, Type } from "@google/genai";
+import { AnalysisResult, RiskLevel } from "../types";
 
 const SYSTEM_PROMPT = `You are the QRShield Forensic AI. You specialize in Quishing (QR Phishing) detection.
 Your goal is to perform deep-packet inspection of QR payloads. 
@@ -15,19 +15,17 @@ export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
-  // Obtain the key from the environment. 
-  // NOTE: If this fails, it usually means the .env isn't being loaded or the key is malformed.
-  const apiKey = process.env.API_KEY?.trim();
+  const apiKey = process.env.API_KEY;
   
-  if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
-    throw new Error("API_KEY_MISSING: Please ensure the .env file has your valid key.");
+  if (!apiKey) {
+    throw new Error("API_KEY_MISSING: The system environment is missing the required API key.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-flash-preview';
 
   try {
-    let parts: any[] = [];
+    const parts: any[] = [];
     if (base64Image) {
       const base64Data = base64Image.split(',')[1] || base64Image;
       parts.push({ 
@@ -44,7 +42,7 @@ export async function performDeepAnalysis(
       If it is a dynamic redirect (like qrco.de or bit.ly), mark FAKE pattern as 100%.` 
     });
 
-    const result = await ai.models.generateContent({
+    const response = await ai.models.generateContent({
       model,
       contents: { parts },
       config: {
@@ -66,12 +64,7 @@ export async function performDeepAnalysis(
       }
     });
 
-    const responseText = result.text;
-    if (!responseText) {
-      throw new Error("Empty response from AI engine.");
-    }
-
-    const data = JSON.parse(responseText);
+    const data = JSON.parse(response.text || "{}");
     
     return {
       riskScore: data.risk_score || 0,
@@ -86,16 +79,17 @@ export async function performDeepAnalysis(
       }
     };
   } catch (error: any) {
-    console.error("Forensic Engine Detailed Error:", error);
-    // Rethrow with a cleaner message for the UI
-    const errorMessage = error.message || "Unknown error";
-    throw new Error(`Forensic Analysis Failed: ${errorMessage}`);
+    console.error("Forensic Engine Error:", error);
+    if (error.message?.includes('401') || error.message?.includes('API_KEY_INVALID')) {
+      throw new Error("UNAUTHORIZED: The provided API key is invalid or has expired.");
+    }
+    throw new Error(`Forensic Analysis Failed: ${error.message || "Unknown error"}`);
   }
 }
 
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
-  const apiKey = process.env.API_KEY?.trim();
-  if (!apiKey) return "API Key missing. Cannot initialize assistant.";
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return "AI Assistant is currently unavailable (Key Missing).";
 
   const ai = new GoogleGenAI({ apiKey });
   try {
@@ -106,6 +100,6 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     });
     return response.text || "I'm sorry, I couldn't process that request.";
   } catch (err: any) {
-    return `Assistant Offline: ${err.message || "Connection Error"}`;
+    return "The assistant is currently encountering connection issues.";
   }
 }
