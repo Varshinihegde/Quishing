@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { QRState, RiskLevel } from './types';
 import { performDeepAnalysis } from './services/geminiService';
@@ -52,7 +51,7 @@ const App: React.FC = () => {
       console.error("App Analysis Error:", err);
       setState(prev => ({ 
         ...prev, 
-        error: err.message || "Forensic failure. Verify hardware link.", 
+        error: err.message || "Forensic failure. Verify your configuration.", 
         loading: false 
       }));
     }
@@ -184,15 +183,25 @@ const App: React.FC = () => {
                   <i className="fas fa-exclamation-triangle text-rose-500 text-3xl"></i>
                 </div>
                 <h2 className="text-3xl font-black uppercase tracking-tighter text-white mb-4 italic">Forensic Alert</h2>
-                <p className="text-slate-400 mb-8 leading-relaxed font-medium">{state.error}</p>
+                <div className="bg-black/40 rounded-2xl p-6 border border-slate-800 mb-8 text-left">
+                   <pre className="text-rose-400 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+                     {state.error}
+                   </pre>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button onClick={resetState} className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-bold transition-all">
+                  <button onClick={resetState} className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-bold transition-all border border-slate-700 uppercase tracking-widest text-xs">
                     Return to Terminal
                   </button>
                   {isAuthError && (
-                    <button className="px-8 py-4 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-bold transition-all">
-                      Check API Link
-                    </button>
+                    <a 
+                      href="https://aistudio.google.com/app/apikey" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all uppercase tracking-widest text-xs flex items-center justify-center space-x-2"
+                    >
+                      <i className="fas fa-external-link-alt"></i>
+                      <span>Get New Key</span>
+                    </a>
                   )}
                 </div>
               </div>

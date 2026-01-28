@@ -12,18 +12,19 @@ SCORING CRITERIA:
 Strictly output JSON according to the schema provided.`;
 
 /**
- * Validates and retrieves the API key from the environment.
+ * Retrieves and validates the API key from the environment.
  */
-function getValidApiKey(): string {
-  const key = process.env.API_KEY?.trim();
+function getApiKey(): string {
+  // In VS Code/Local environments, ensure process.env.API_KEY is correctly loaded.
+  const key = (process.env.API_KEY || '').trim();
   
   if (!key) {
-    throw new Error("API_KEY_MISSING: No API key found. Please ensure your .env file is configured.");
+    throw new Error("API_KEY_MISSING: The system cannot find your API key. Please check that your .env file contains: API_KEY=AIza...");
   }
 
-  // Check if the user accidentally pasted a sentence or instructions into the .env file
-  if (key.includes(" ") || key.includes("\n") || key.length > 100) {
-    throw new Error("API_KEY_MALFORMED: Your API key appears to contain extra text or spaces. Please check your .env file and ensure it contains ONLY the key string.");
+  // Detect if extra text was accidentally pasted into the .env file
+  if (key.includes(" ") || key.includes("\n") || key.length > 60) {
+    throw new Error("API_KEY_MALFORMED: Your API key appears to contain extra text, spaces, or is too long. Please ensure the .env file contains ONLY the key string.");
   }
 
   return key;
@@ -33,7 +34,7 @@ export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
-  const apiKey = getValidApiKey();
+  const apiKey = getApiKey();
   const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-pro-preview';
 
@@ -96,9 +97,9 @@ export async function performDeepAnalysis(
   } catch (error: any) {
     console.error("Forensic Engine Detailed Error:", error);
     
-    // Check for specific API authentication errors
+    // Check for specific API authentication errors from Google
     if (error.message?.includes('401') || error.message?.includes('403') || error.message?.includes('API_KEY_INVALID')) {
-      throw new Error("UNAUTHORIZED: The provided API key is invalid or the model 'gemini-3-pro-preview' is not enabled for your project. Please check AI Studio.");
+      throw new Error("UNAUTHORIZED: Your API key is being rejected by Google. Ensure the project in AI Studio is active and the key is correct.");
     }
     
     throw new Error(`Forensic Analysis Failed: ${error.message || "Unknown error"}`);
@@ -107,7 +108,7 @@ export async function performDeepAnalysis(
 
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
   try {
-    const apiKey = getValidApiKey();
+    const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -117,7 +118,7 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     return response.text || "I'm sorry, I couldn't process that request.";
   } catch (err: any) {
     if (err.message?.includes('API_KEY')) {
-      return "Assistant Offline: Please check your API key configuration in the .env file.";
+      return "Assistant Offline: Please check your API key in the .env file.";
     }
     return "The assistant is currently experiencing connection issues.";
   }
