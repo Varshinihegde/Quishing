@@ -50,7 +50,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       setState(prev => ({ 
         ...prev, 
-        error: "Critical system connection interrupted.", 
+        error: "Forensic engine connection failure. Check API key.", 
         loading: false 
       }));
     }
@@ -82,6 +82,8 @@ const App: React.FC = () => {
     e.target.value = '';
   };
 
+  const isConfigRequired = state.analysis?.systemStatus === "configuration_required";
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-blue-500/30">
       <div className="fixed inset-0 pointer-events-none z-0">
@@ -101,9 +103,9 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center space-x-4">
              <div className="hidden md:flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800">
-                <div className={`w-2 h-2 rounded-full ${state.analysis?.explanation.includes("API Key") ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`}></div>
+                <div className={`w-2 h-2 rounded-full ${isConfigRequired ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`}></div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  {state.analysis?.explanation.includes("API Key") ? 'Engine Offline' : 'Engine Ready'}
+                  {isConfigRequired ? 'Engine Offline' : 'Engine Ready'}
                 </span>
              </div>
              <button 
@@ -177,34 +179,44 @@ const App: React.FC = () => {
                 </div>
                 <div className="text-center space-y-3">
                   <h3 className="text-3xl font-black uppercase tracking-tighter">Running Diagnostics...</h3>
-                  <p className="text-slate-500 font-mono text-[10px] uppercase tracking-[0.4em]">Applying Force-Separation Logic</p>
+                  <p className="text-slate-500 font-mono text-[10px] uppercase tracking-[0.4em]">Heuristic Threat Verification</p>
                 </div>
               </div>
             ) : state.error ? (
               <div className="max-w-md mx-auto p-12 bg-rose-500/5 border border-rose-500/20 rounded-[3rem] text-center shadow-2xl">
                 <i className="fas fa-plug-circle-exclamation text-rose-500 text-5xl mb-6"></i>
-                <h3 className="text-2xl font-bold text-white mb-2">Connection Blocked</h3>
+                <h3 className="text-2xl font-bold text-white mb-2">Analysis Failed</h3>
                 <p className="text-slate-400 mb-8 leading-relaxed">{state.error}</p>
                 <button onClick={resetState} className="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all border border-slate-700">Go Back</button>
               </div>
             ) : state.analysis && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 <div className="lg:col-span-4 space-y-6">
-                  {state.analysis.explanation.includes("API Key") ? (
-                    <div className="p-8 bg-rose-500/10 border-2 border-rose-500/30 rounded-[2.5rem] text-center">
-                       <i className="fas fa-key text-rose-500 text-3xl mb-4"></i>
-                       <h4 className="text-xl font-bold text-rose-400 uppercase tracking-tighter">Configuration Required</h4>
-                       <p className="text-xs text-rose-300/80 mt-2 leading-relaxed">The Forensic Engine is offline because the API Key is missing locally.</p>
+                  {isConfigRequired ? (
+                    <div className="p-10 bg-rose-500/10 border-2 border-rose-500/40 rounded-[2.5rem] text-center shadow-2xl animate-in zoom-in-95 duration-500">
+                       <i className="fas fa-triangle-exclamation text-rose-500 text-5xl mb-6"></i>
+                       <h4 className="text-2xl font-black text-rose-400 uppercase tracking-tighter mb-4 leading-tight">Configuration Required</h4>
+                       <p className="text-sm text-rose-200/70 mb-8 leading-relaxed italic">{state.analysis.explanation}</p>
+                       <div className="space-y-3 text-left">
+                         {state.analysis.recommendations.map((step, idx) => (
+                           <div key={idx} className="flex items-center space-x-3 text-xs bg-black/30 p-3 rounded-xl border border-rose-500/20">
+                             <span className="w-5 h-5 flex items-center justify-center bg-rose-500 text-white rounded-full font-bold">{idx + 1}</span>
+                             <span className="text-rose-100 font-mono">{step}</span>
+                           </div>
+                         ))}
+                       </div>
+                       <button onClick={resetState} className="mt-8 w-full py-3 bg-rose-500 text-white rounded-xl font-bold hover:bg-rose-400 transition-colors">Return to Home</button>
                     </div>
                   ) : (
-                    <RiskGauge score={state.analysis.riskScore} level={state.analysis.riskLevel} />
+                    <>
+                      <RiskGauge score={state.analysis.riskScore} level={state.analysis.riskLevel} />
+                      <div className="p-8 bg-slate-900/50 border border-slate-800/50 rounded-[2.5rem] backdrop-blur-sm shadow-xl">
+                        <ProbabilityBreakdown probabilities={state.analysis.probabilities} />
+                      </div>
+                    </>
                   )}
-                  
-                  <div className="p-8 bg-slate-900/50 border border-slate-800/50 rounded-[2.5rem] backdrop-blur-sm shadow-xl">
-                    <ProbabilityBreakdown probabilities={state.analysis.probabilities} />
-                  </div>
 
-                  {state.base64Image && (
+                  {state.base64Image && !isConfigRequired && (
                     <div className="p-5 bg-slate-900 border border-slate-800 rounded-[2rem] shadow-inner overflow-hidden">
                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3">Threat Evidence</span>
                       <img src={state.base64Image} alt="Artifact" className="w-full rounded-xl border border-slate-800 grayscale hover:grayscale-0 transition-all duration-700" />
@@ -212,49 +224,51 @@ const App: React.FC = () => {
                   )}
                 </div>
 
-                <div className="lg:col-span-8 space-y-6">
-                  <div className="bg-slate-900/40 p-10 rounded-[3rem] border border-slate-800/50 backdrop-blur-md shadow-2xl">
-                    <h3 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center space-x-3 text-blue-400">
-                      <i className="fas fa-file-waveform"></i>
-                      <span>Forensic Log</span>
-                    </h3>
-                    <p className={`leading-relaxed mb-10 text-lg font-medium ${state.analysis.explanation.includes("API Key") ? 'text-rose-400' : 'text-slate-300'}`}>
-                      {state.analysis.explanation}
-                    </p>
-                    
-                    <div className="p-6 bg-black/40 rounded-2xl border border-slate-800/50 group">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Payload Data</span>
-                        <i className="fas fa-code text-slate-700 text-xs"></i>
-                      </div>
-                      <p className="font-mono text-xs text-blue-400/80 break-all leading-relaxed">{state.analysis.originalContent}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-900/40 p-10 rounded-[3rem] border border-slate-800/50 shadow-2xl">
-                    <h3 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center space-x-3 text-emerald-400">
-                      <i className="fas fa-user-shield"></i>
-                      <span>Safety Protocol</span>
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {state.analysis.recommendations.map((rec, i) => (
-                        <div key={i} className="flex items-start space-x-4 p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
-                          <i className="fas fa-shield-halved text-emerald-500/50 mt-1"></i>
-                          <span className="text-sm text-slate-300 font-bold leading-relaxed">{rec}</span>
+                {!isConfigRequired && (
+                  <div className="lg:col-span-8 space-y-6">
+                    <div className="bg-slate-900/40 p-10 rounded-[3rem] border border-slate-800/50 backdrop-blur-md shadow-2xl">
+                      <h3 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center space-x-3 text-blue-400">
+                        <i className="fas fa-file-waveform"></i>
+                        <span>Forensic Log</span>
+                      </h3>
+                      <p className={`leading-relaxed mb-10 text-lg font-medium ${state.analysis.riskLevel === RiskLevel.CRITICAL ? 'text-rose-400' : 'text-slate-300'}`}>
+                        {state.analysis.explanation}
+                      </p>
+                      
+                      <div className="p-6 bg-black/40 rounded-2xl border border-slate-800/50 group">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Payload Data</span>
+                          <i className="fas fa-code text-slate-700 text-xs"></i>
                         </div>
-                      ))}
+                        <p className="font-mono text-xs text-blue-400/80 break-all leading-relaxed">{state.analysis.originalContent}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-900/40 p-10 rounded-[3rem] border border-slate-800/50 shadow-2xl">
+                      <h3 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center space-x-3 text-emerald-400">
+                        <i className="fas fa-user-shield"></i>
+                        <span>Safety Protocol</span>
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {state.analysis.recommendations.map((rec, i) => (
+                          <div key={i} className="flex items-start space-x-4 p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
+                            <i className="fas fa-shield-halved text-emerald-500/50 mt-1"></i>
+                            <span className="text-sm text-slate-300 font-bold leading-relaxed">{rec}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-6 flex justify-center">
+                      <button 
+                        onClick={resetState}
+                        className="px-16 py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-black text-lg transition-all transform hover:scale-105 active:scale-95 shadow-2xl shadow-blue-600/30 uppercase tracking-widest"
+                      >
+                        New Scan
+                      </button>
                     </div>
                   </div>
-
-                  <div className="pt-6 flex justify-center">
-                    <button 
-                      onClick={resetState}
-                      className="px-16 py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-black text-lg transition-all transform hover:scale-105 active:scale-95 shadow-2xl shadow-blue-600/30 uppercase tracking-widest"
-                    >
-                      New Scan
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
