@@ -24,32 +24,27 @@ Final % = Clamp(Raw * 1.35, 0, 100)
 
 Your response must be JSON only. Treat ANY dynamic redirect as a high-risk security threat.`;
 
-function applyHeuristicOverrides(probs: ProbabilityMap, content: string): ProbabilityMap {
-  const badPatterns = [
-    'bit.ly', 't.co', 'tinyurl', 'is.gd', 'scan.page', 'qrco.de', 'me-qr.com', 
-    'qr-code-generator.com', 'flowcode.com', 'base64', 'data:', 'javascript:', 
-    'upi://', 'target=', 'redirect=', 'login', 'verify', 'update', 'secure'
-  ];
-  
-  const contentLower = content.toLowerCase();
-  const hasBadPattern = badPatterns.some(p => contentLower.includes(p));
-  
-  if (hasBadPattern) {
-    return {
-      malicious: Math.max(probs.malicious, 80),
-      fake: 100,
-      authentic: Math.min(probs.authentic, 5)
-    };
-  }
-  return probs;
-}
-
 export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
+  // CONFIGURATION CHECK (MANDATORY)
+  const isKeyMissing = !process.env.API_KEY || process.env.API_KEY === 'YOUR_GEMINI_API_KEY_HERE';
+  
+  if (isKeyMissing) {
+    throw new Error(JSON.stringify({
+      "system_status": "configuration_required",
+      "message": "AI analysis is disabled because no API key is configured.",
+      "why_this_happens": "Local environments such as VS Code require the user to provide their own API key.",
+      "how_to_fix": [
+        "Create a .env file in the project root",
+        "Add: API_KEY=your_api_key_here",
+        "Restart the development server"
+      ]
+    }, null, 2));
+  }
+
   try {
-    // Initializing with the environment variable directly as per standards
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = 'gemini-3-flash-preview';
     
@@ -96,27 +91,17 @@ INSTRUCTION: Evaluate for quishing. Redirects and cloaked URLs are considered de
     return processResponse(response, payload);
   } catch (error: any) {
     console.error("Forensic Analysis Error:", error);
-    return {
-      riskScore: 100,
-      riskLevel: RiskLevel.CRITICAL,
-      explanation: `FORENSIC ENGINE ERROR: ${error.message || "Connection failure"}. Ensure your API_KEY is set correctly in your environment.`,
-      recommendations: ["DO NOT OPEN the URL", "Report this QR to security", "Manually inspect for brand mimicry"],
-      originalContent: content || "Artifact corrupted",
-      probabilities: { malicious: 100, fake: 100, authentic: 0 }
-    };
+    throw error;
   }
 }
 
 function processResponse(response: GenerateContentResponse, defaultContent: string): AnalysisResult {
-  // Use .text property directly as per latest SDK guidelines
   const raw = JSON.parse(response.text || "{}");
   let probs: ProbabilityMap = {
     malicious: raw.probability_breakdown?.malicious_intent || 0,
     fake: raw.probability_breakdown?.fake_or_pseudo_pattern || 0,
     authentic: raw.probability_breakdown?.official_or_authentic || 0
   };
-
-  probs = applyHeuristicOverrides(probs, defaultContent);
 
   const rawScore = (0.8 * probs.malicious) + (0.7 * probs.fake) - (0.5 * probs.authentic);
   const finalScore = Math.max(0, Math.min(100, Math.round(rawScore * 1.35)));
@@ -138,6 +123,9 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
 }
 
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
+  if (!process.env.API_KEY || process.env.API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+    return "Diagnostic Mode: Please configure your API key in the .env file to enable the assistant.";
+  }
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({

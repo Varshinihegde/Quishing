@@ -18,6 +18,8 @@ const App: React.FC = () => {
     error: null,
   });
 
+  const isConfigReady = process.env.API_KEY && process.env.API_KEY !== 'YOUR_GEMINI_API_KEY_HERE';
+
   const resetState = () => {
     setState({
       view: 'home',
@@ -47,9 +49,20 @@ const App: React.FC = () => {
         loading: false 
       }));
     } catch (err: any) {
+      // Check if it's our structured diagnostic error
+      let errorMsg = "Forensic engine failure. Please try again.";
+      try {
+        const parsed = JSON.parse(err.message);
+        if (parsed.system_status === 'configuration_required') {
+          errorMsg = JSON.stringify(parsed, null, 2);
+        }
+      } catch (e) {
+        errorMsg = err.message || errorMsg;
+      }
+
       setState(prev => ({ 
         ...prev, 
-        error: "Forensic engine failure. Please try again.", 
+        error: errorMsg, 
         loading: false 
       }));
     }
@@ -100,8 +113,10 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center space-x-4">
              <div className="hidden md:flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Engine Ready</span>
+                <div className={`w-2 h-2 rounded-full ${isConfigReady ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`}></div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  {isConfigReady ? 'Engine Ready' : 'Config Needed'}
+                </span>
              </div>
              <button 
                 onClick={() => chatbotRef.current?.open()}
@@ -178,11 +193,32 @@ const App: React.FC = () => {
                 </div>
               </div>
             ) : state.error ? (
-              <div className="max-w-md mx-auto p-12 bg-rose-500/5 border border-rose-500/20 rounded-[3rem] text-center shadow-2xl">
-                <i className="fas fa-plug-circle-exclamation text-rose-500 text-5xl mb-6"></i>
-                <h3 className="text-2xl font-bold text-white mb-2">Analysis Failed</h3>
-                <p className="text-slate-400 mb-8 leading-relaxed">{state.error}</p>
-                <button onClick={resetState} className="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all border border-slate-700">Go Back</button>
+              <div className="max-w-2xl mx-auto p-12 bg-slate-900/50 border border-amber-500/20 rounded-[3rem] text-left shadow-2xl backdrop-blur-xl">
+                <div className="flex items-center space-x-4 mb-6 text-amber-500">
+                  <i className="fas fa-triangle-exclamation text-4xl"></i>
+                  <h3 className="text-3xl font-black uppercase tracking-tighter">Diagnostic Report</h3>
+                </div>
+                <div className="bg-black/40 rounded-2xl p-6 border border-slate-800 mb-8 overflow-x-auto">
+                   <pre className="text-blue-400 font-mono text-sm leading-relaxed">
+                     {state.error}
+                   </pre>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4">
+                   <button 
+                     onClick={resetState} 
+                     className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all border border-slate-700 uppercase tracking-widest text-xs"
+                   >
+                     Reset System
+                   </button>
+                   <a 
+                     href="https://aistudio.google.com/" 
+                     target="_blank" 
+                     rel="noopener noreferrer"
+                     className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all text-center uppercase tracking-widest text-xs shadow-lg shadow-blue-500/20"
+                   >
+                     Get API Key
+                   </a>
+                </div>
               </div>
             ) : state.analysis && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
