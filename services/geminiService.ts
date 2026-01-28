@@ -49,7 +49,8 @@ export async function performDeepAnalysis(
   base64Image: string | null
 ): Promise<AnalysisResult> {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    // Initializing with the environment variable directly as per standards
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = 'gemini-3-flash-preview';
     
     let parts: any[] = [];
@@ -98,7 +99,7 @@ INSTRUCTION: Evaluate for quishing. Redirects and cloaked URLs are considered de
     return {
       riskScore: 100,
       riskLevel: RiskLevel.CRITICAL,
-      explanation: `FORENSIC ENGINE ERROR: ${error.message || "Connection failure"}. If you are seeing this, please verify that your API_KEY is correctly set in your environment.`,
+      explanation: `FORENSIC ENGINE ERROR: ${error.message || "Connection failure"}. Ensure your API_KEY is set correctly in your environment.`,
       recommendations: ["DO NOT OPEN the URL", "Report this QR to security", "Manually inspect for brand mimicry"],
       originalContent: content || "Artifact corrupted",
       probabilities: { malicious: 100, fake: 100, authentic: 0 }
@@ -107,6 +108,7 @@ INSTRUCTION: Evaluate for quishing. Redirects and cloaked URLs are considered de
 }
 
 function processResponse(response: GenerateContentResponse, defaultContent: string): AnalysisResult {
+  // Use .text property directly as per latest SDK guidelines
   const raw = JSON.parse(response.text || "{}");
   let probs: ProbabilityMap = {
     malicious: raw.probability_breakdown?.malicious_intent || 0,
@@ -137,7 +139,7 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
 
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Context: ${context || 'General help'}. Query: "${message}"`,
