@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { QRState, RiskLevel } from './types';
 import { performDeepAnalysis } from './services/geminiService';
 import Scanner from './components/Scanner';
@@ -7,9 +7,9 @@ import Chatbot, { ChatbotHandle } from './components/Chatbot';
 import ProbabilityBreakdown from './components/ProbabilityBreakdown';
 import jsQR from 'jsqr';
 
-// Main Application Component
 const App: React.FC = () => {
   const chatbotRef = useRef<ChatbotHandle>(null);
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [state, setState] = useState<QRState>({
     view: 'home',
     decodedContent: null,
@@ -18,6 +18,26 @@ const App: React.FC = () => {
     loading: false,
     error: null,
   });
+
+  useEffect(() => {
+    checkApiKey();
+  }, []);
+
+  const checkApiKey = async () => {
+    const apiStored = await (window as any).aistudio?.hasSelectedApiKey();
+    const envKey = process.env.API_KEY;
+    setHasKey(!!apiStored || (!!envKey && !envKey.includes(' ')));
+  };
+
+  const handleOpenKeySelector = async () => {
+    try {
+      await (window as any).aistudio?.openSelectKey();
+      // Assume success and proceed to app
+      setHasKey(true);
+    } catch (err) {
+      console.error("Key selection failed", err);
+    }
+  };
 
   const resetState = () => {
     setState({
@@ -48,10 +68,12 @@ const App: React.FC = () => {
         loading: false 
       }));
     } catch (err: any) {
-      console.error("App Analysis Error:", err);
+      if (err.message === "KEY_NOT_FOUND" || err.message === "UNAUTHORIZED") {
+        setHasKey(false);
+      }
       setState(prev => ({ 
         ...prev, 
-        error: err.message || "Forensic failure. Verify your configuration.", 
+        error: err.message, 
         loading: false 
       }));
     }
@@ -83,7 +105,38 @@ const App: React.FC = () => {
     e.target.value = '';
   };
 
-  const isAuthError = state.error?.includes("UNAUTHORIZED") || state.error?.includes("API_KEY");
+  if (hasKey === false) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 p-10 rounded-[2.5rem] shadow-2xl text-center space-y-8">
+          <div className="bg-blue-600 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
+            <i className="fas fa-link text-white text-3xl"></i>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-black uppercase tracking-tighter italic text-white leading-tight">
+              Neural Core <span className="text-blue-500">Offline</span>
+            </h1>
+            <p className="text-slate-400 text-sm font-medium">
+              The Gemini API key is missing or invalid. Link your neural core to proceed with forensics.
+            </p>
+          </div>
+          <button 
+            onClick={handleOpenKeySelector}
+            className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl text-white font-bold uppercase tracking-widest text-xs transition-all shadow-xl shadow-blue-500/20 active:scale-95"
+          >
+            Link Neural Core
+          </button>
+          <div className="pt-4 border-t border-slate-800">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Requirements</p>
+            <p className="text-[10px] text-slate-400">
+              Must use a Paid Project API Key. <br />
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-blue-500 underline decoration-blue-500/30">Billing Documentation</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-blue-500/30">
@@ -107,10 +160,7 @@ const App: React.FC = () => {
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 <span className="text-xs font-bold text-slate-400">Guardian Engine Active</span>
              </div>
-             <button 
-                onClick={resetState}
-                className="text-slate-400 hover:text-white transition-colors"
-             >
+             <button onClick={resetState} className="text-slate-400 hover:text-white transition-colors">
                 <i className="fas fa-home text-lg"></i>
              </button>
           </div>
@@ -126,7 +176,7 @@ const App: React.FC = () => {
                 <span className="text-blue-500">QR Inspection</span>
               </h1>
               <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium">
-                Shielding your digital life from quishing (QR phishing) and malicious payloads using advanced forensic AI.
+                Shielding your digital life from quishing and malicious payloads using advanced forensic AI.
               </p>
             </div>
 
@@ -163,53 +213,31 @@ const App: React.FC = () => {
         )}
 
         {state.view === 'result' && (
-          <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="max-w-5xl mx-auto space-y-8">
             {state.loading ? (
               <div className="flex flex-col items-center justify-center py-20 space-y-6">
                 <div className="relative">
                   <div className="w-24 h-24 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <i className="fas fa-microchip text-blue-500 text-2xl animate-pulse"></i>
-                  </div>
+                  <i className="fas fa-microchip absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-500 text-2xl"></i>
                 </div>
                 <div className="text-center">
-                  <h3 className="text-xl font-bold uppercase tracking-widest text-white mb-1">Analyzing Signal...</h3>
-                  <p className="text-slate-500 text-sm font-mono italic">Extracting telemetry from QR payload</p>
+                  <h3 className="text-xl font-bold uppercase tracking-widest text-white">Analyzing Signal...</h3>
+                  <p className="text-slate-500 text-sm italic">Extracting telemetry from QR payload</p>
                 </div>
               </div>
             ) : state.error ? (
               <div className="bg-rose-500/5 border border-rose-500/20 p-12 rounded-[2.5rem] text-center max-w-2xl mx-auto shadow-2xl">
-                <div className="bg-rose-500/10 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                  <i className="fas fa-exclamation-triangle text-rose-500 text-3xl"></i>
-                </div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter text-white mb-4 italic">Forensic Alert</h2>
-                <div className="bg-black/40 rounded-2xl p-6 border border-slate-800 mb-8 text-left">
-                   <pre className="text-rose-400 font-mono text-xs leading-relaxed whitespace-pre-wrap">
-                     {state.error}
-                   </pre>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button onClick={resetState} className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-bold transition-all border border-slate-700 uppercase tracking-widest text-xs">
-                    Return to Terminal
-                  </button>
-                  {isAuthError && (
-                    <a 
-                      href="https://aistudio.google.com/app/apikey" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all uppercase tracking-widest text-xs flex items-center justify-center space-x-2"
-                    >
-                      <i className="fas fa-external-link-alt"></i>
-                      <span>Get New Key</span>
-                    </a>
-                  )}
-                </div>
+                <i className="fas fa-exclamation-triangle text-rose-500 text-5xl mb-6"></i>
+                <h2 className="text-3xl font-black uppercase tracking-tighter text-white mb-4">Forensic Alert</h2>
+                <p className="text-rose-400 font-mono text-sm mb-8">{state.error}</p>
+                <button onClick={resetState} className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-bold uppercase tracking-widest text-xs transition-all">
+                  Return to Home
+                </button>
               </div>
             ) : state.analysis && (
-              <div className="grid lg:grid-cols-12 gap-8 items-start">
+              <div className="grid lg:grid-cols-12 gap-8 items-start animate-in fade-in slide-in-from-bottom-8 duration-700">
                 <div className="lg:col-span-5 space-y-6">
                   <RiskGauge score={state.analysis.riskScore} level={state.analysis.riskLevel} />
-                  
                   <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-[2.5rem] shadow-xl">
                     <ProbabilityBreakdown probabilities={state.analysis.probabilities} />
                   </div>
@@ -218,50 +246,35 @@ const App: React.FC = () => {
                 <div className="lg:col-span-7 space-y-6">
                   <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-[2.5rem] shadow-xl space-y-8">
                     <div>
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 italic flex items-center">
-                        <i className="fas fa-file-contract mr-2"></i> Payload Signature
-                      </h4>
-                      <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 font-mono text-xs break-all text-blue-400 shadow-inner">
-                        {state.decodedContent || "No text decoded (Image extraction only)"}
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 italic">Payload Signature</h4>
+                      <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 font-mono text-xs break-all text-blue-400">
+                        {state.decodedContent || "Visual Forensics Only"}
                       </div>
                     </div>
-
                     <div>
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 italic flex items-center">
-                        <i className="fas fa-microscope mr-2"></i> AI Forensic Summary
-                      </h4>
-                      <p className="text-slate-200 leading-relaxed font-medium italic">
-                        "{state.analysis.explanation}"
-                      </p>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 italic">AI Forensic Summary</h4>
+                      <p className="text-slate-200 leading-relaxed font-medium italic">"{state.analysis.explanation}"</p>
                     </div>
-
                     <div>
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 italic flex items-center">
-                        <i className="fas fa-shield-virus mr-2"></i> Security Recommendations
-                      </h4>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 italic">Security Recommendations</h4>
                       <ul className="space-y-3">
                         {state.analysis.recommendations.map((rec, i) => (
                           <li key={i} className="flex items-start space-x-3 text-sm text-slate-400">
                             <i className="fas fa-chevron-right text-blue-500 mt-1 text-[10px]"></i>
-                            <span className="font-medium">{rec}</span>
+                            <span>{rec}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
                   </div>
-
                   <div className="flex gap-4">
                     <button 
-                      onClick={() => chatbotRef.current?.sendMessage("Tell me more about this risk analysis.", JSON.stringify(state.analysis))}
-                      className="flex-1 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 py-4 rounded-2xl text-blue-400 font-bold transition-all flex items-center justify-center space-x-2"
+                      onClick={() => chatbotRef.current?.sendMessage("Clarify this risk assessment.", JSON.stringify(state.analysis))}
+                      className="flex-1 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 py-4 rounded-2xl text-blue-400 font-bold transition-all"
                     >
-                      <i className="fas fa-brain"></i>
-                      <span>Ask AI Assistant</span>
+                      Ask AI Assistant
                     </button>
-                    <button 
-                      onClick={resetState}
-                      className="flex-1 bg-slate-800 hover:bg-slate-700 py-4 rounded-2xl text-white font-bold transition-all"
-                    >
+                    <button onClick={resetState} className="flex-1 bg-slate-800 hover:bg-slate-700 py-4 rounded-2xl text-white font-bold transition-all">
                       New Scan
                     </button>
                   </div>
@@ -272,15 +285,8 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="border-t border-slate-900 py-8 px-6 relative z-10">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-slate-500 text-xs font-bold uppercase tracking-widest">
-          <p>© 2024 QRShield Forensic Core</p>
-          <div className="flex items-center space-x-6">
-            <a href="#" className="hover:text-blue-500 transition-colors">Privacy Protocol</a>
-            <a href="#" className="hover:text-blue-500 transition-colors">Neural Link Help</a>
-            <a href="#" className="hover:text-blue-500 transition-colors italic text-blue-500/50">SECURED BY AI</a>
-          </div>
-        </div>
+      <footer className="border-t border-slate-900 py-8 px-6 text-center text-slate-500 text-[10px] font-bold uppercase tracking-[0.3em]">
+        © 2024 QRShield Forensic Core • Stay Secure
       </footer>
 
       <Chatbot ref={chatbotRef} />

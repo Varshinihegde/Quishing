@@ -12,21 +12,12 @@ SCORING CRITERIA:
 Strictly output JSON according to the schema provided.`;
 
 /**
- * Retrieves and validates the API key from the environment.
+ * Validates the API key.
  */
 function getApiKey(): string {
-  // In VS Code/Local environments, ensure process.env.API_KEY is correctly loaded.
-  const key = (process.env.API_KEY || '').trim();
-  
-  if (!key) {
-    throw new Error("API_KEY_MISSING: The system cannot find your API key. Please check that your .env file contains: API_KEY=AIza...");
-  }
-
-  // Detect if extra text was accidentally pasted into the .env file
-  if (key.includes(" ") || key.includes("\n") || key.length > 60) {
-    throw new Error("API_KEY_MALFORMED: Your API key appears to contain extra text, spaces, or is too long. Please ensure the .env file contains ONLY the key string.");
-  }
-
+  const key = (process.env.API_KEY || "").trim();
+  if (!key) throw new Error("API_KEY_MISSING");
+  if (key.includes(" ")) throw new Error("API_KEY_MALFORMED");
   return key;
 }
 
@@ -35,6 +26,7 @@ export async function performDeepAnalysis(
   base64Image: string | null
 ): Promise<AnalysisResult> {
   const apiKey = getApiKey();
+  // Always create a new instance to ensure the most up-to-date key is used
   const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-pro-preview';
 
@@ -79,7 +71,7 @@ export async function performDeepAnalysis(
     });
 
     const text = response.text;
-    if (!text) throw new Error("The AI core returned an empty signal.");
+    if (!text) throw new Error("EMPTY_RESPONSE");
     const data = JSON.parse(text);
     
     return {
@@ -95,14 +87,14 @@ export async function performDeepAnalysis(
       }
     };
   } catch (error: any) {
-    console.error("Forensic Engine Detailed Error:", error);
-    
-    // Check for specific API authentication errors from Google
-    if (error.message?.includes('401') || error.message?.includes('403') || error.message?.includes('API_KEY_INVALID')) {
-      throw new Error("UNAUTHORIZED: Your API key is being rejected by Google. Ensure the project in AI Studio is active and the key is correct.");
+    console.error("Forensic Engine Error:", error);
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("KEY_NOT_FOUND");
     }
-    
-    throw new Error(`Forensic Analysis Failed: ${error.message || "Unknown error"}`);
+    if (error.message?.includes("401") || error.message?.includes("403")) {
+      throw new Error("UNAUTHORIZED");
+    }
+    throw error;
   }
 }
 
@@ -117,9 +109,6 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     });
     return response.text || "I'm sorry, I couldn't process that request.";
   } catch (err: any) {
-    if (err.message?.includes('API_KEY')) {
-      return "Assistant Offline: Please check your API key in the .env file.";
-    }
-    return "The assistant is currently experiencing connection issues.";
+    return "The assistant is currently offline. Please check your connection.";
   }
 }
