@@ -18,8 +18,6 @@ const App: React.FC = () => {
     error: null,
   });
 
-  const isConfigReady = process.env.API_KEY && process.env.API_KEY !== 'YOUR_GEMINI_API_KEY_HERE';
-
   const resetState = () => {
     setState({
       view: 'home',
@@ -49,20 +47,9 @@ const App: React.FC = () => {
         loading: false 
       }));
     } catch (err: any) {
-      // Check if it's our structured diagnostic error
-      let errorMsg = "Forensic engine failure. Please try again.";
-      try {
-        const parsed = JSON.parse(err.message);
-        if (parsed.system_status === 'configuration_required') {
-          errorMsg = JSON.stringify(parsed, null, 2);
-        }
-      } catch (e) {
-        errorMsg = err.message || errorMsg;
-      }
-
       setState(prev => ({ 
         ...prev, 
-        error: errorMsg, 
+        error: "Forensic failure. Verify API connection.", 
         loading: false 
       }));
     }
@@ -113,10 +100,8 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center space-x-4">
              <div className="hidden md:flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800">
-                <div className={`w-2 h-2 rounded-full ${isConfigReady ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`}></div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  {isConfigReady ? 'Engine Ready' : 'Config Needed'}
-                </span>
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Neural Link Active</span>
              </div>
              <button 
                 onClick={() => chatbotRef.current?.open()}
@@ -141,7 +126,7 @@ const App: React.FC = () => {
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Scan Smart.</span>
               </h1>
               <p className="text-slate-400 text-lg max-w-xl mx-auto leading-relaxed">
-                Detect hidden malicious intent in QR codes. We analyze redirects, brand mimicry, and phishing patterns using Gemini AI.
+                Analyze QR codes for malicious intent, hidden redirects, and phishing patterns.
               </p>
             </div>
 
@@ -193,32 +178,11 @@ const App: React.FC = () => {
                 </div>
               </div>
             ) : state.error ? (
-              <div className="max-w-2xl mx-auto p-12 bg-slate-900/50 border border-amber-500/20 rounded-[3rem] text-left shadow-2xl backdrop-blur-xl">
-                <div className="flex items-center space-x-4 mb-6 text-amber-500">
-                  <i className="fas fa-triangle-exclamation text-4xl"></i>
-                  <h3 className="text-3xl font-black uppercase tracking-tighter">Diagnostic Report</h3>
-                </div>
-                <div className="bg-black/40 rounded-2xl p-6 border border-slate-800 mb-8 overflow-x-auto">
-                   <pre className="text-blue-400 font-mono text-sm leading-relaxed">
-                     {state.error}
-                   </pre>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-4">
-                   <button 
-                     onClick={resetState} 
-                     className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all border border-slate-700 uppercase tracking-widest text-xs"
-                   >
-                     Reset System
-                   </button>
-                   <a 
-                     href="https://aistudio.google.com/" 
-                     target="_blank" 
-                     rel="noopener noreferrer"
-                     className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all text-center uppercase tracking-widest text-xs shadow-lg shadow-blue-500/20"
-                   >
-                     Get API Key
-                   </a>
-                </div>
+              <div className="max-w-md mx-auto p-12 bg-rose-500/5 border border-rose-500/20 rounded-[3rem] text-center shadow-2xl">
+                <i className="fas fa-plug-circle-exclamation text-rose-500 text-5xl mb-6"></i>
+                <h3 className="text-2xl font-bold text-white mb-2">Analysis Failed</h3>
+                <p className="text-slate-400 mb-8 leading-relaxed">{state.error}</p>
+                <button onClick={resetState} className="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all border border-slate-700">Go Back</button>
               </div>
             ) : state.analysis && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -227,13 +191,6 @@ const App: React.FC = () => {
                   <div className="p-8 bg-slate-900/50 border border-slate-800/50 rounded-[2.5rem] backdrop-blur-sm shadow-xl">
                     <ProbabilityBreakdown probabilities={state.analysis.probabilities} />
                   </div>
-
-                  {state.base64Image && (
-                    <div className="p-5 bg-slate-900 border border-slate-800 rounded-[2rem] shadow-inner overflow-hidden">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3">Threat Evidence</span>
-                      <img src={state.base64Image} alt="Artifact" className="w-full rounded-xl border border-slate-800 grayscale hover:grayscale-0 transition-all duration-700" />
-                    </div>
-                  )}
                 </div>
 
                 <div className="lg:col-span-8 space-y-6">
@@ -292,9 +249,6 @@ const App: React.FC = () => {
             <span className="font-black text-2xl tracking-tighter uppercase italic">QRShield</span>
           </div>
           <p className="text-[10px] font-black tracking-[0.5em] uppercase text-center">Neural Quishing Detection Engine v3.2</p>
-          <div className="flex space-x-8 text-[10px] font-black uppercase tracking-widest">
-            <span className="cursor-pointer hover:text-blue-500 transition-colors">Forensic API</span>
-          </div>
         </div>
       </footer>
 
