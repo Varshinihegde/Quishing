@@ -1,6 +1,6 @@
 {
-  "name": "Copy of QRShield - Quishing Defense System",
-  "description": "A high-security QR code analyzer that detects phishing attempts (quishing) using Gemini AI. Supports live camera scanning and image uploads.",
+  "name": "QRShield - AI Quishing Forensics",
+  "description": "High-fidelity QR code security analyzer that detects phishing and malicious redirects using Gemini AI.",
   "requestFramePermissions": [
     "camera"
   ]
