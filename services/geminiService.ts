@@ -32,17 +32,18 @@ export async function performDeepAnalysis(
     DATA CONTENT: "${content || 'Captured via Image (Perform Visual Forensics)'}"
 
     CRITICAL ANALYSIS CRITERIA:
-    1. URL Reputation: Check if the domain is a known phishing host, uses typosquatting (e.g., 'gooogle.com'), or leverages deceptive subdomains.
-    2. Redirection Chain: Detect URL shorteners (bit.ly, tinyurl) or multi-hop redirects which are common in quishing.
-    3. Structural Forensics: If an image is provided, inspect the QR pattern for 'sticker-over-QR' tampering or unusual encodings.
-    4. Contextual Risk: Is the content typical for a QR code? (e.g., unexpected app download prompts, credential harvesting).
+    1. URL Reputation: Check if the domain is a known phishing host, uses typosquatting, or leverages deceptive subdomains.
+    2. Redirection Chain: Detect URL shorteners (bit.ly, tinyurl) or multi-hop redirects.
+    3. Structural Forensics: If an image is provided, inspect the QR pattern for tampering or unusual encodings.
+    4. Contextual Risk: Is the content typical? (e.g., unexpected app download prompts, credential harvesting).
 
-    SCORING POLICY:
-    - 0-30: SAFE (Verified legitimate domain, transparent purpose)
-    - 31-70: SUSPICIOUS (Shortened URLs, unverified domains, unusual structural patterns)
-    - 71-100: MALICIOUS (Confirmed phishing, malware links, known blacklisted domains)
+    SCORING POLICY (STRICT):
+    - 0%: ONLY for clearly benign, well-known, and verified content (e.g., google.com, official government portals).
+    - 5-20% (LOW RISK): Default for unknown domains, unusual string lengths, random character sets, or non-URL data that lacks clear context.
+    - 21-70% (SUSPICIOUS): Shortened URLs, multi-hop redirects, unverified subdomains, or domains with low trust scores.
+    - 71-100% (MALICIOUS): Confirmed phishing, malware signatures, or high-confidence malicious routing.
     
-    Do not provide a neutral 50% score unless there is a genuine ambiguity that requires human intervention. Be decisive.
+    DETERMINISTIC RULE: If any weak indicator exists (e.g., obscure domain, unusual length), you MUST assign a non-zero risk score. Do not collapse local uncertainty to 0%. Be decisive.
     
     All probability values (malicious, fake, authentic) must sum to exactly 100.`;
 
@@ -88,7 +89,6 @@ export async function performDeepAnalysis(
     return processResponse(response, content || "Extracted QR Data");
   } catch (error: any) {
     console.error("Forensic analysis failed:", error);
-    // Only return a fallback if the API itself fails, not for "uncertainty"
     return getErrorResult(content || "Unknown Data", error.message);
   }
 }
@@ -121,16 +121,17 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
 
 function getErrorResult(content: string, errorType: string): AnalysisResult {
   return {
-    riskScore: 0,
-    riskLevel: RiskLevel.SAFE, // Default to safe but explain the error
-    explanation: `SYSTEM NOTICE: Forensic scan interrupted by a processing error (${errorType}). No immediate threat detected by basic heuristics, but manual caution is advised.`,
+    riskScore: 10, // Default to a non-zero "Unknown" risk on system error
+    riskLevel: RiskLevel.SUSPICIOUS, 
+    explanation: `SYSTEM NOTICE: Forensic scan interrupted by a processing error (${errorType}). Content remains unverified. Extreme caution is advised as the system could not rule out threats.`,
     recommendations: [
       "Check your network connection and try again",
-      "Manually inspect the URL for suspicious spelling",
-      "Do not enter credentials if the site looks unprofessional"
+      "Do not open the link if you do not recognize the sender",
+      "Manually inspect the URL for subtle typos (typosquatting)",
+      "If this is a payment request, verify via a separate official channel"
     ],
     originalContent: content,
-    probabilities: { malicious: 0, fake: 0, authentic: 100 }
+    probabilities: { malicious: 10, fake: 10, authentic: 80 }
   };
 }
 
