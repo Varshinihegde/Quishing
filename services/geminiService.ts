@@ -15,8 +15,15 @@ export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
-  // Initialize AI with the key from environment
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  // Obtain the key from the environment. 
+  // NOTE: If this fails, it usually means the .env isn't being loaded or the key is malformed.
+  const apiKey = process.env.API_KEY?.trim();
+  
+  if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+    throw new Error("API_KEY_MISSING: Please ensure the .env file has your valid key.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-flash-preview';
 
   try {
@@ -37,7 +44,7 @@ export async function performDeepAnalysis(
       If it is a dynamic redirect (like qrco.de or bit.ly), mark FAKE pattern as 100%.` 
     });
 
-    const response = await ai.models.generateContent({
+    const result = await ai.models.generateContent({
       model,
       contents: { parts },
       config: {
@@ -59,9 +66,13 @@ export async function performDeepAnalysis(
       }
     });
 
-    const data = JSON.parse(response.text || "{}");
+    const responseText = result.text;
+    if (!responseText) {
+      throw new Error("Empty response from AI engine.");
+    }
+
+    const data = JSON.parse(responseText);
     
-    // Mapping raw response to our internal types
     return {
       riskScore: data.risk_score || 0,
       riskLevel: (data.risk_level as RiskLevel) || RiskLevel.LOW,
@@ -75,20 +86,18 @@ export async function performDeepAnalysis(
       }
     };
   } catch (error: any) {
-    console.error("Forensic Engine Error:", error);
-    return {
-      riskScore: 100,
-      riskLevel: RiskLevel.CRITICAL,
-      explanation: "The forensic engine encountered a critical error or the API key is invalid.",
-      recommendations: ["Do not visit the URL", "Report this QR code to security teams"],
-      originalContent: content || "Unknown",
-      probabilities: { malicious: 100, fake: 100, authentic: 0 }
-    };
+    console.error("Forensic Engine Detailed Error:", error);
+    // Rethrow with a cleaner message for the UI
+    const errorMessage = error.message || "Unknown error";
+    throw new Error(`Forensic Analysis Failed: ${errorMessage}`);
   }
 }
 
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const apiKey = process.env.API_KEY?.trim();
+  if (!apiKey) return "API Key missing. Cannot initialize assistant.";
+
+  const ai = new GoogleGenAI({ apiKey });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -96,7 +105,7 @@ export async function getChatbotResponse(message: string, context?: string): Pro
       config: { systemInstruction: "You are the QRShield Guardian Assistant. Keep answers short and safety-focused." }
     });
     return response.text || "I'm sorry, I couldn't process that request.";
-  } catch (err) {
-    return "The assistant is currently offline.";
+  } catch (err: any) {
+    return `Assistant Offline: ${err.message || "Connection Error"}`;
   }
 }

@@ -47,9 +47,10 @@ const App: React.FC = () => {
         loading: false 
       }));
     } catch (err: any) {
+      console.error("App Analysis Error:", err);
       setState(prev => ({ 
         ...prev, 
-        error: "Forensic failure. Verify API connection.", 
+        error: err.message || "Forensic failure. Verify API connection and Key validity.", 
         loading: false 
       }));
     }
@@ -178,11 +179,15 @@ const App: React.FC = () => {
                 </div>
               </div>
             ) : state.error ? (
-              <div className="max-w-md mx-auto p-12 bg-rose-500/5 border border-rose-500/20 rounded-[3rem] text-center shadow-2xl">
+              <div className="max-w-2xl mx-auto p-12 bg-rose-500/5 border border-rose-500/20 rounded-[3rem] text-center shadow-2xl backdrop-blur-xl">
                 <i className="fas fa-plug-circle-exclamation text-rose-500 text-5xl mb-6"></i>
-                <h3 className="text-2xl font-bold text-white mb-2">Analysis Failed</h3>
-                <p className="text-slate-400 mb-8 leading-relaxed">{state.error}</p>
-                <button onClick={resetState} className="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all border border-slate-700">Go Back</button>
+                <h3 className="text-2xl font-bold text-white mb-4">Forensic Engine Error</h3>
+                <div className="bg-black/40 rounded-2xl p-6 border border-slate-800 mb-8 overflow-x-auto text-left">
+                   <pre className="text-rose-400 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                     {state.error}
+                   </pre>
+                </div>
+                <button onClick={resetState} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-bold transition-all border border-slate-700 uppercase tracking-widest text-xs">Try New Scan</button>
               </div>
             ) : state.analysis && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
