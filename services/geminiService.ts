@@ -11,18 +11,31 @@ SCORING CRITERIA:
 
 Strictly output JSON according to the schema provided.`;
 
+/**
+ * Validates and retrieves the API key from the environment.
+ */
+function getValidApiKey(): string {
+  const key = process.env.API_KEY?.trim();
+  
+  if (!key) {
+    throw new Error("API_KEY_MISSING: No API key found. Please ensure your .env file is configured.");
+  }
+
+  // Check if the user accidentally pasted a sentence or instructions into the .env file
+  if (key.includes(" ") || key.includes("\n") || key.length > 100) {
+    throw new Error("API_KEY_MALFORMED: Your API key appears to contain extra text or spaces. Please check your .env file and ensure it contains ONLY the key string.");
+  }
+
+  return key;
+}
+
 export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("API_KEY_MISSING: The system environment is missing the required API key.");
-  }
-
+  const apiKey = getValidApiKey();
   const ai = new GoogleGenAI({ apiKey });
-  const model = 'gemini-3-flash-preview';
+  const model = 'gemini-3-pro-preview';
 
   try {
     const parts: any[] = [];
@@ -64,7 +77,9 @@ export async function performDeepAnalysis(
       }
     });
 
-    const data = JSON.parse(response.text || "{}");
+    const text = response.text;
+    if (!text) throw new Error("The AI core returned an empty signal.");
+    const data = JSON.parse(text);
     
     return {
       riskScore: data.risk_score || 0,
@@ -79,20 +94,21 @@ export async function performDeepAnalysis(
       }
     };
   } catch (error: any) {
-    console.error("Forensic Engine Error:", error);
-    if (error.message?.includes('401') || error.message?.includes('API_KEY_INVALID')) {
-      throw new Error("UNAUTHORIZED: The provided API key is invalid or has expired.");
+    console.error("Forensic Engine Detailed Error:", error);
+    
+    // Check for specific API authentication errors
+    if (error.message?.includes('401') || error.message?.includes('403') || error.message?.includes('API_KEY_INVALID')) {
+      throw new Error("UNAUTHORIZED: The provided API key is invalid or the model 'gemini-3-pro-preview' is not enabled for your project. Please check AI Studio.");
     }
+    
     throw new Error(`Forensic Analysis Failed: ${error.message || "Unknown error"}`);
   }
 }
 
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return "AI Assistant is currently unavailable (Key Missing).";
-
-  const ai = new GoogleGenAI({ apiKey });
   try {
+    const apiKey = getValidApiKey();
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `User Query: "${message}". Context: ${context || 'General security help'}.`,
@@ -100,6 +116,9 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     });
     return response.text || "I'm sorry, I couldn't process that request.";
   } catch (err: any) {
-    return "The assistant is currently encountering connection issues.";
+    if (err.message?.includes('API_KEY')) {
+      return "Assistant Offline: Please check your API key configuration in the .env file.";
+    }
+    return "The assistant is currently experiencing connection issues.";
   }
 }
