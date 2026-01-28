@@ -50,7 +50,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       setState(prev => ({ 
         ...prev, 
-        error: "The forensic engine encountered a critical disruption. Check your connection or API configuration.", 
+        error: "Forensic failure: API connection unstable.", 
         loading: false 
       }));
     }
@@ -84,77 +84,67 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-blue-500/30">
-      {/* Background Decorative Elements */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px]"></div>
-        <div className="absolute top-1/2 -right-24 w-80 h-80 bg-emerald-600/5 rounded-full blur-[100px]"></div>
+      {/* Background Ambience */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-blue-600/5 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-emerald-600/5 rounded-full blur-[120px]"></div>
       </div>
 
       <header className="border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div onClick={resetState} className="flex items-center space-x-3 cursor-pointer group">
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-2.5 rounded-xl group-hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all">
+            <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform">
               <i className="fas fa-shield-halved text-white text-xl"></i>
             </div>
-            <span className="text-xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+            <span className="text-xl font-black tracking-tighter uppercase italic">
               QR<span className="text-blue-500">Shield</span>
             </span>
           </div>
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => chatbotRef.current?.open()}
-              className="text-slate-400 hover:text-white transition-all text-xs font-bold uppercase tracking-widest bg-slate-900 px-4 py-2 rounded-full border border-slate-800"
-            >
-              System Help
-            </button>
-          </div>
+          <button 
+            onClick={() => chatbotRef.current?.open()}
+            className="text-slate-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest bg-slate-900 px-5 py-2 rounded-full border border-slate-800"
+          >
+            System Support
+          </button>
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 max-w-5xl mx-auto w-full px-6 py-12">
+      <main className="relative z-10 flex-1 max-w-6xl mx-auto w-full px-6 py-12">
         {state.view === 'home' && (
           <div className="text-center space-y-16 animate-in fade-in slide-in-from-top-4 duration-1000">
             <div className="space-y-6">
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-widest mb-4">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                </span>
-                <span>Gemini 3 Flash Powered Forensics</span>
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-4">
+                <i className="fas fa-microchip animate-pulse"></i>
+                <span>Forensic Neural Engine Active</span>
               </div>
-              <h1 className="text-5xl sm:text-8xl font-black tracking-tighter leading-[0.9] text-white">
-                Defend Your <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-b from-blue-400 to-blue-700">Digital Identity.</span>
+              <h1 className="text-6xl sm:text-8xl font-black tracking-tighter leading-none">
+                Neutralize <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Digital Threats.</span>
               </h1>
-              <p className="text-lg text-slate-400 max-w-xl mx-auto leading-relaxed">
-                High-fidelity QR code security analyzer that detects phishing,
-                malicious redirects, and deceptive patterns using Gemini AI.
+              <p className="text-slate-400 text-lg max-w-xl mx-auto leading-relaxed">
+                Enterprise-grade quishing detection. We audit QR payloads for redirects, brand mimicry, and malicious intent.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
               <button 
                 onClick={() => setState(prev => ({ ...prev, view: 'scan' }))}
-                className="group p-10 bg-slate-900 hover:bg-slate-800 rounded-[3rem] transition-all border border-slate-800 hover:border-blue-500/50 shadow-2xl text-left relative overflow-hidden"
+                className="group relative p-12 bg-slate-900/50 hover:bg-slate-900 rounded-[2.5rem] border border-slate-800 transition-all hover:border-blue-500/50 text-left overflow-hidden shadow-2xl"
               >
-                <div className="relative z-10">
-                  <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-blue-600/20">
-                    <i className="fas fa-camera text-2xl text-white"></i>
-                  </div>
-                  <h3 className="text-2xl font-bold mb-2">Live Analysis</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">Use your camera to scan physical QR codes with real-time AI-driven overlay detection.</p>
+                <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-blue-600/20 group-hover:scale-110 transition-transform">
+                  <i className="fas fa-camera-retro text-2xl text-white"></i>
                 </div>
+                <h3 className="text-2xl font-bold mb-2 uppercase tracking-tight">Optical Scan</h3>
+                <p className="text-slate-500 text-sm">Real-time camera audit with automated pattern recognition.</p>
               </button>
 
-              <label className="group p-10 bg-slate-900 hover:bg-slate-800 rounded-[3rem] transition-all border border-slate-800 hover:border-emerald-500/50 shadow-2xl cursor-pointer text-left relative overflow-hidden">
+              <label className="group relative p-12 bg-slate-900/50 hover:bg-slate-900 rounded-[2.5rem] border border-slate-800 transition-all hover:border-emerald-500/50 cursor-pointer text-left overflow-hidden shadow-2xl">
                 <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                <div className="relative z-10">
-                  <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-emerald-600/20">
-                    <i className="fas fa-file-import text-2xl text-white"></i>
-                  </div>
-                  <h3 className="text-2xl font-bold mb-2">Image Forensics</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">Upload screenshots or photos for deep inspection of embedded URLs and deceptive metadata.</p>
+                <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-emerald-600/20 group-hover:scale-110 transition-transform">
+                  <i className="fas fa-file-shield text-2xl text-white"></i>
                 </div>
+                <h3 className="text-2xl font-bold mb-2 uppercase tracking-tight">Artifact Upload</h3>
+                <p className="text-slate-500 text-sm">Analyze screenshots or gallery images for deep forensic inspection.</p>
               </label>
             </div>
           </div>
@@ -169,86 +159,79 @@ const App: React.FC = () => {
         )}
 
         {state.view === 'result' && (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
             {state.loading ? (
-              <div className="flex flex-col items-center justify-center py-24 space-y-8">
+              <div className="flex flex-col items-center justify-center py-32 space-y-10">
                 <div className="relative">
-                  <div className="w-24 h-24 border-4 border-slate-800 border-t-blue-500 rounded-full animate-spin"></div>
+                  <div className="w-32 h-32 border-[4px] border-slate-800 border-t-blue-500 rounded-full animate-spin"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <i className="fas fa-fingerprint text-blue-500 animate-pulse text-2xl"></i>
+                    <i className="fas fa-shield-virus text-blue-500 text-3xl animate-pulse"></i>
                   </div>
                 </div>
-                <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-bold tracking-tight">Extracting Threat Vectors...</h3>
-                  <p className="text-slate-500 font-mono text-xs uppercase tracking-widest">Applying Cybersecurity Logic & Search Grounding</p>
+                <div className="text-center space-y-3">
+                  <h3 className="text-3xl font-black uppercase tracking-tighter">Auditing Payload...</h3>
+                  <p className="text-slate-500 font-mono text-[10px] uppercase tracking-[0.4em]">Heuristics Calculation In Progress</p>
                 </div>
               </div>
             ) : state.error ? (
-              <div className="p-12 bg-rose-500/5 border border-rose-500/20 rounded-[3rem] text-center max-w-lg mx-auto">
-                <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <i className="fas fa-triangle-exclamation text-rose-500 text-2xl"></i>
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-4">Forensic Engine Error</h3>
+              <div className="max-w-md mx-auto p-12 bg-rose-500/5 border border-rose-500/20 rounded-[3rem] text-center">
+                <i className="fas fa-triangle-exclamation text-rose-500 text-5xl mb-6"></i>
+                <h3 className="text-2xl font-bold text-white mb-2">Engine Alert</h3>
                 <p className="text-slate-400 mb-8 leading-relaxed">{state.error}</p>
-                <button onClick={resetState} className="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all">Return to Command Center</button>
+                <button onClick={resetState} className="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all border border-slate-700">Return to HQ</button>
               </div>
             ) : state.analysis && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 <div className="lg:col-span-4 space-y-6">
                   <RiskGauge score={state.analysis.riskScore} level={state.analysis.riskLevel} />
                   
-                  <div className="p-8 bg-slate-900/50 border border-slate-800/50 rounded-[2.5rem] backdrop-blur-md">
+                  <div className="p-8 bg-slate-900/50 border border-slate-800/50 rounded-[2.5rem] backdrop-blur-sm shadow-xl">
                     <ProbabilityBreakdown probabilities={state.analysis.probabilities} />
                   </div>
 
                   {state.base64Image && (
-                    <div className="p-5 bg-slate-900 border border-slate-800 rounded-[2rem]">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-4">Scanned Artifact</span>
-                      <div className="rounded-2xl overflow-hidden border border-slate-800">
-                        <img src={state.base64Image} alt="Scan Artifact" className="w-full h-auto brightness-90 contrast-110" />
-                      </div>
+                    <div className="p-5 bg-slate-900 border border-slate-800 rounded-[2rem] shadow-inner overflow-hidden">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3">Threat Artifact</span>
+                      <img src={state.base64Image} alt="Artifact" className="w-full rounded-xl border border-slate-800 grayscale brightness-75 hover:grayscale-0 hover:brightness-100 transition-all duration-700" />
                     </div>
                   )}
                 </div>
 
-                <div className="lg:col-span-8 space-y-8">
-                  <section className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-800/50 backdrop-blur-sm">
-                    <h3 className="text-xl font-bold mb-6 flex items-center space-x-3">
-                      <i className="fas fa-shield-virus text-blue-500"></i>
-                      <span>Expert Assessment</span>
+                <div className="lg:col-span-8 space-y-6">
+                  <div className="bg-slate-900/40 p-10 rounded-[3rem] border border-slate-800/50 backdrop-blur-md shadow-2xl">
+                    <h3 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center space-x-3 text-blue-400">
+                      <i className="fas fa-scroll"></i>
+                      <span>Forensic Summary</span>
                     </h3>
-                    <p className="text-slate-300 leading-relaxed mb-8">{state.analysis.explanation}</p>
+                    <p className="text-slate-300 leading-relaxed mb-10 text-lg font-medium">{state.analysis.explanation}</p>
                     
-                    <div className="p-5 bg-black/40 rounded-2xl border border-slate-800 font-mono text-xs break-all relative group overflow-hidden">
-                      <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:opacity-100 transition-opacity">
-                        <i className="fas fa-code"></i>
+                    <div className="p-6 bg-black/40 rounded-2xl border border-slate-800/50 group">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Payload Source</span>
+                        <i className="fas fa-link text-slate-700 text-xs"></i>
                       </div>
-                      <span className="text-slate-600 block mb-2 uppercase tracking-tighter">Decoded Payload Content</span>
-                      <span className="text-blue-400/90">{state.analysis.originalContent}</span>
+                      <p className="font-mono text-xs text-blue-400/80 break-all leading-relaxed">{state.analysis.originalContent}</p>
                     </div>
-                  </section>
+                  </div>
 
-                  <section className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-800/50 backdrop-blur-sm">
-                    <h3 className="text-xl font-bold mb-6 flex items-center space-x-3">
-                      <i className="fas fa-user-shield text-emerald-500"></i>
-                      <span>Safety Protocol Checklist</span>
+                  <div className="bg-slate-900/40 p-10 rounded-[3rem] border border-slate-800/50 shadow-2xl">
+                    <h3 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center space-x-3 text-emerald-400">
+                      <i className="fas fa-check-double"></i>
+                      <span>Counter-Measures</span>
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {state.analysis.recommendations.map((rec, i) => (
-                        <div key={i} className="flex items-start space-x-3 p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
-                          <i className="fas fa-circle-check text-emerald-500 mt-1 text-sm"></i>
-                          <span className="text-sm text-slate-300 leading-snug">{rec}</span>
+                        <div key={i} className="flex items-start space-x-4 p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
+                          <i className="fas fa-shield-halved text-emerald-500/50 mt-1"></i>
+                          <span className="text-sm text-slate-300 font-bold leading-relaxed">{rec}</span>
                         </div>
                       ))}
                     </div>
-                  </section>
+                  </div>
 
                   {state.analysis.groundingSources && (
-                    <section className="bg-blue-600/5 p-8 rounded-[2.5rem] border border-blue-500/10">
-                      <h3 className="text-xl font-bold mb-6 flex items-center space-x-3">
-                        <i className="fas fa-globe text-blue-400"></i>
-                        <span>Threat Intelligence Links</span>
-                      </h3>
+                    <div className="bg-blue-600/5 p-8 rounded-[3rem] border border-blue-500/10 shadow-lg">
+                      <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400/40 mb-6 px-2">Grounding Sources</h3>
                       <div className="flex flex-wrap gap-3">
                         {state.analysis.groundingSources.map((source, i) => (
                           <a 
@@ -256,22 +239,22 @@ const App: React.FC = () => {
                             href={source.uri} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="px-5 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-xl text-xs font-bold text-blue-400 transition-all flex items-center space-x-3 group"
+                            className="px-5 py-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-2xl text-xs font-black text-blue-400 transition-all flex items-center space-x-3 group"
                           >
                             <span>{source.title}</span>
                             <i className="fas fa-external-link text-[10px] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
                           </a>
                         ))}
                       </div>
-                    </section>
+                    </div>
                   )}
 
-                  <div className="flex justify-center pt-6">
+                  <div className="pt-6 flex justify-center">
                     <button 
                       onClick={resetState}
-                      className="px-12 py-4 bg-blue-600 text-white hover:bg-blue-500 rounded-full font-black transition-all transform hover:scale-105 active:scale-95 shadow-xl shadow-blue-600/20"
+                      className="px-16 py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-black text-lg transition-all transform hover:scale-105 active:scale-95 shadow-2xl shadow-blue-600/30 uppercase tracking-widest"
                     >
-                      Analyze Another QR
+                      Scan Next Payload
                     </button>
                   </div>
                 </div>
@@ -281,19 +264,16 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="mt-24 border-t border-slate-800/50 bg-slate-950 py-16 px-6 relative z-10">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 opacity-40 hover:opacity-100 transition-opacity">
+      <footer className="mt-20 border-t border-slate-900 bg-slate-950/80 py-16 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-10 opacity-20 hover:opacity-100 transition-opacity duration-1000">
           <div className="flex items-center space-x-3">
-            <i className="fas fa-shield-halved text-2xl"></i>
-            <span className="font-black tracking-tighter text-xl">QRShield</span>
+            <i className="fas fa-shield-halved text-3xl"></i>
+            <span className="font-black text-2xl tracking-tighter uppercase italic">QRShield</span>
           </div>
-          <div className="text-center md:text-left">
-            <p className="text-sm font-medium">Empowering users against Quishing since 2024</p>
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] mt-1">Enterprise-Grade Forensics Engine</p>
-          </div>
-          <div className="flex space-x-6">
-            <i className="fab fa-github text-xl hover:text-white cursor-pointer transition-colors"></i>
-            <i className="fab fa-linkedin text-xl hover:text-white cursor-pointer transition-colors"></i>
+          <p className="text-[10px] font-black tracking-[0.5em] uppercase text-center">Neural Quishing Detection Engine v3.1</p>
+          <div className="flex space-x-8 text-[10px] font-black uppercase tracking-widest">
+            <span className="cursor-pointer hover:text-blue-500 transition-colors">Forensic API</span>
+            <span className="cursor-pointer hover:text-blue-500 transition-colors">Github</span>
           </div>
         </div>
       </footer>
