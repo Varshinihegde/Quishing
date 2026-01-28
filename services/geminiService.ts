@@ -2,32 +2,34 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, RiskLevel, GroundingSource, ProbabilityMap } from "../types";
 
-const SYSTEM_PROMPT = `You are the QRShield Forensic AI. Analyze QR payloads for "Quishing" (QR Phishing).
+const SYSTEM_PROMPT = `You are the QRShield Forensic AI, a world-class cybersecurity auditor.
+Your mission is to find reasons why a QR code might be MALICIOUS. 
 
 STRICT SCORING PROTOCOL (NON-NEGOTIABLE):
 You must output three distinct probability scores (0-100).
 
 1. MALICIOUS INTENT (0–100):
-   - 0–25: Clean/No harm.
-   - 26–55: Suspicious (unusual data).
-   - 56+: Direct phishing/malware markers.
+   - 0–20: Only if explicitly safe (known official URLs).
+   - 21–50: Unknown/Unverifiable payloads.
+   - 51–100: Payload contains scripts, exploit strings, or phishing templates.
 
 2. FAKE / PSEUDO PATTERN (0–100):
-   - SET >= 50: If using URL shorteners (bit.ly, t.co), redirects, or brand mimicry.
-   - 60–85: Dynamic QR platforms or look-alike domains.
-   - < 20: Verified direct domains only.
+   - MANDATORY 100: If payload is garbled, base64 encoded, uses shorteners (bit.ly, t.co), or hides the real destination.
+   - 60–90: Brand impersonation (e.g., "g00gle.com").
+   - < 10: Pure direct official domain.
 
 3. OFFICIAL / AUTHENTIC (0–100):
-   - > 70: Direct official domains (e.g., google.com, apple.com) or standard payment UPI strings.
-   - < 40: Third-party intermediaries.
-   - < 35: MANDATORY if Fake Pattern > 60.
+   - 80–100: Verified, well-known official root domains.
+   - < 20: Any third-party redirect or obfuscated string.
 
-CRITICAL CONSTRAINT:
-At least one score MUST differ from the others by 30 points or more. NEUTRALITY IS FORBIDDEN. If the data is ambiguous, bias the scores to show a clear gap.
+FORCED SEPARATION RULE:
+One score MUST be at least 30 points away from the others. NO NEUTRALITY. If in doubt, ASSUME THE WORST.
 
-FINAL RISK FORMULA:
-Risk % = (0.5 × Malicious) + (0.4 × Fake) − (0.3 × Authentic)
-[Clamp results 0-100]`;
+FINAL RISK FORMULA (SCALED):
+Raw = (0.6 × Malicious) + (0.5 × Fake) − (0.3 × Authentic)
+Final % = Clamp(Raw * 1.1, 0, 100)
+
+Your response must be JSON only. Treat garbled binary data as a CRITICAL threat.`;
 
 /**
  * Ensures the 30-point delta constraint is met mathematically if the AI fails to do so.
@@ -38,7 +40,6 @@ function ensureDimensionalSeparation(probs: ProbabilityMap): ProbabilityMap {
   const maxDiff = Math.max(...diffs);
 
   if (maxDiff < 30) {
-    // If scores are too clustered, amplify the highest and dampen the lowest
     const sorted = [
       { key: 'malicious' as const, val: m },
       { key: 'fake' as const, val: f },
@@ -46,8 +47,9 @@ function ensureDimensionalSeparation(probs: ProbabilityMap): ProbabilityMap {
     ].sort((a, b) => b.val - a.val);
 
     const adjusted = { ...probs };
-    adjusted[sorted[0].key] = Math.min(100, sorted[0].val + 15);
-    adjusted[sorted[2].key] = Math.max(0, sorted[2].val - 15);
+    // Force a clear gap for the forensic UI
+    adjusted[sorted[0].key] = Math.min(100, sorted[0].val + 20);
+    adjusted[sorted[2].key] = Math.max(0, sorted[2].val - 20);
     return adjusted;
   }
   return probs;
@@ -57,8 +59,9 @@ export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
+  // If API_KEY is missing, we must show the Configuration screen.
   if (!process.env.API_KEY) {
-    return getErrorResult(content || "Analysis Halted", "API_KEY_MISSING");
+    return getErrorResult(content || "OFFLINE_PAYLOAD", "API_KEY_MISSING");
   }
 
   try {
@@ -71,10 +74,9 @@ export async function performDeepAnalysis(
       parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
     }
 
-    const userPrompt = `FORENSIC AUDIT REQUEST:
-PAYLOAD: "${(content || 'IMAGE_DATA').substring(0, 1000)}"
-TASK: Calculate Risk Level. Apply (0.5*M + 0.4*F - 0.3*A). 
-FORCED_SEPARATION: Ensure a 30-point delta exists between at least one vector.`;
+    const userPrompt = `FORENSIC ANALYSIS REQUEST:
+PAYLOAD_CONTENT: "${(content || 'IMAGE_DATA').substring(0, 1500)}"
+INSTRUCTION: Evaluate for quishing. If the payload looks like gibberish or encoded data, set Fake Pattern to 100 immediately. Apply formula.`;
 
     parts.push({ text: userPrompt });
 
@@ -108,9 +110,10 @@ FORCED_SEPARATION: Ensure a 30-point delta exists between at least one vector.`;
       }
     });
 
-    return processResponse(response, content || "Encoded Artifact");
+    return processResponse(response, content || "Encoded Payload Artifact");
   } catch (error: any) {
-    return getErrorResult(content || "Scan Failed", error.message || "Engine Error");
+    console.error("Forensic analysis failed:", error);
+    return getErrorResult(content || "System Error", error.message || "Engine Error");
   }
 }
 
@@ -120,31 +123,37 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
   if (chunks) {
     chunks.forEach((chunk: any) => {
       if (chunk.web) {
-        groundingSources.push({ title: chunk.web.title || "Threat Intel", uri: chunk.web.uri });
+        groundingSources.push({ title: chunk.web.title || "External Intelligence", uri: chunk.web.uri });
       }
     });
   }
 
   const raw = JSON.parse(response.text || "{}");
-  
-  // 1. Extract raw probabilities
   let probs: ProbabilityMap = {
     malicious: raw.probability_breakdown?.malicious_intent || 0,
     fake: raw.probability_breakdown?.fake_or_pseudo_pattern || 0,
     authentic: raw.probability_breakdown?.official_or_authentic || 0
   };
 
-  // 2. FORCE 30-POINT DELTA (Constraint enforcement)
+  // Enforce the 30-point delta rule mathematically
   probs = ensureDimensionalSeparation(probs);
 
-  // 3. RE-CALCULATE SCORE LOCALLY (Absolute Accuracy)
-  const score = Math.max(0, Math.min(100, (0.5 * probs.malicious) + (0.4 * probs.fake) - (0.3 * probs.authentic)));
+  // Recalculate score locally to ensure 100% reachability and formula adherence
+  const rawScore = (0.6 * probs.malicious) + (0.5 * probs.fake) - (0.3 * probs.authentic);
+  const finalScore = Math.max(0, Math.min(100, Math.round(rawScore * 1.1)));
+
+  // Determine Level dynamically based on final score
+  let level = RiskLevel.LOW;
+  if (finalScore > 85) level = RiskLevel.CRITICAL;
+  else if (finalScore > 70) level = RiskLevel.HIGH;
+  else if (finalScore > 45) level = RiskLevel.SUSPICIOUS;
+  else if (finalScore > 20) level = RiskLevel.MODERATE;
 
   return { 
-    riskScore: Math.round(score),
-    riskLevel: (raw.risk_level || RiskLevel.MODERATE) as RiskLevel,
-    explanation: raw.expert_assessment || "No detailed forensic log generated.",
-    recommendations: raw.recommended_actions || ["Exercise high caution."],
+    riskScore: finalScore,
+    riskLevel: level,
+    explanation: raw.expert_assessment || "Automated audit logs compiled.",
+    recommendations: raw.recommended_actions || ["Exercise extreme caution with this payload."],
     originalContent: raw.originalContent || defaultContent,
     groundingSources: groundingSources.length > 0 ? groundingSources : undefined,
     probabilities: probs
@@ -155,16 +164,16 @@ function getErrorResult(content: string, errorType: string): AnalysisResult {
   const isKeyError = errorType.includes("API_KEY_MISSING");
   
   return {
-    riskScore: isKeyError ? 0 : 50,
-    riskLevel: isKeyError ? RiskLevel.LOW : RiskLevel.SUSPICIOUS, 
+    riskScore: isKeyError ? 0 : 95, // Default to CRITICAL for system errors (like rate limits)
+    riskLevel: isKeyError ? RiskLevel.LOW : RiskLevel.CRITICAL, 
     explanation: isKeyError 
-      ? "FORENSIC ENGINE OFFLINE: The API_KEY environment variable is not set in your VS Code environment. Create a .env file locally with your key to enable the AI."
-      : `FORENSIC DISRUPTION: ${errorType}. Manual verification required.`,
+      ? "FORENSIC ENGINE DISCONNECTED: The API_KEY environment variable is not set in your VS Code environment. Create a .env file locally with API_KEY=your_key to enable real-time detection."
+      : `CRITICAL ENGINE FAILURE: ${errorType}. This payload must be treated as a direct threat.`,
     recommendations: isKeyError 
-      ? ["Configure local .env file", "Restart VS Code terminal", "Check API permissions"]
-      : ["Check domain spelling", "Don't submit personal info", "Scan again in 60 seconds"],
+      ? ["Set up your API Key locally", "Review project documentation", "Restart Dev Server"]
+      : ["DO NOT OPEN THIS QR", "Report to security team", "Wipe clipboard data"],
     originalContent: content,
-    probabilities: { malicious: 0, fake: 0, authentic: 0 }
+    probabilities: isKeyError ? { malicious: 0, fake: 0, authentic: 0 } : { malicious: 90, fake: 100, authentic: 5 }
   };
 }
 
@@ -173,11 +182,11 @@ export async function getChatbotResponse(message: string, context?: string): Pro
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Context: ${context || 'General'}. User: "${message}"`,
-      config: { systemInstruction: "You are the QRShield Guardian. Be brief and expert." }
+      contents: `Context: ${context || 'General'}. Query: "${message}"`,
+      config: { systemInstruction: "You are the QRShield Guardian. Be direct and technical." }
     });
-    return response.text || "Support module offline.";
+    return response.text || "Assistant disconnected.";
   } catch (err) {
-    return "API Key required for chat functionality.";
+    return "API Key is required for assistant features.";
   }
 }
