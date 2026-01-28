@@ -26,7 +26,6 @@ export interface AnalysisResult {
   originalContent: string;
   groundingSources?: GroundingSource[];
   probabilities: ProbabilityMap;
-  systemStatus?: 'configuration_required' | 'active'; // Explicit status field
 }
 
 export interface ChatMessage {

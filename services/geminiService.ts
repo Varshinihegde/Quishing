@@ -5,7 +5,7 @@ import { AnalysisResult, RiskLevel, GroundingSource, ProbabilityMap } from "../t
 const SYSTEM_PROMPT = `You are the QRShield Forensic AI. You are a paranoid cybersecurity auditor.
 Your job is to find reasons why a QR code might be MALICIOUS. NEUTRALITY IS A FAILURE.
 
-STRICT SCORING PROTOCOL (NON-NEGOTIABLE):
+STRICT SCORING PROTOCOL:
 You must output three distinct probability scores (0-100).
 
 1. MALICIOUS INTENT (0–100):
@@ -22,10 +22,7 @@ You must output three distinct probability scores (0-100).
    - 90–100: Verified, well-known official root domains ONLY.
    - < 10: Any third-party redirect or obfuscated string.
 
-FORCED SEPARATION RULE:
-One score MUST be at least 40 points away from the others. NO NEUTRALITY. If in doubt, ASSUME THE WORST.
-
-FINAL RISK FORMULA (SCALED FOR CRITICALITY):
+FINAL RISK FORMULA:
 Raw = (0.8 × Malicious) + (0.7 × Fake) − (0.5 × Authentic)
 Final % = Clamp(Raw * 1.3, 0, 100)
 
@@ -51,44 +48,10 @@ function applyHeuristicOverrides(probs: ProbabilityMap, content: string): Probab
   return probs;
 }
 
-function ensureDimensionalSeparation(probs: ProbabilityMap): ProbabilityMap {
-  const { malicious: m, fake: f, authentic: a } = probs;
-  const sorted = [
-    { key: 'malicious' as const, val: m },
-    { key: 'fake' as const, val: f },
-    { key: 'authentic' as const, val: a }
-  ].sort((a, b) => b.val - a.val);
-
-  const adjusted = { ...probs };
-  // Force a massive gap for the forensic UI
-  if (Math.abs(sorted[0].val - sorted[1].val) < 40) {
-    adjusted[sorted[0].key] = Math.min(100, sorted[0].val + 30);
-    adjusted[sorted[2].key] = Math.max(0, sorted[2].val - 30);
-  }
-  return adjusted;
-}
-
 export async function performDeepAnalysis(
   content: string | null, 
   base64Image: string | null
 ): Promise<AnalysisResult> {
-  // MANDATORY CONFIGURATION CHECK
-  if (!process.env.API_KEY) {
-    return {
-      riskScore: 0,
-      riskLevel: RiskLevel.LOW,
-      explanation: "API key not detected in the local environment. QRShield analysis is disabled.",
-      systemStatus: 'configuration_required',
-      recommendations: [
-        "Create a .env file in the project root",
-        "Add: API_KEY=your_api_key_here",
-        "Restart the VS Code terminal and rerun the application"
-      ],
-      originalContent: content || "NO_PAYLOAD_ARTIFACT",
-      probabilities: { malicious: 0, fake: 0, authentic: 0 }
-    };
-  }
-
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = 'gemini-3-pro-preview';
@@ -140,7 +103,6 @@ INSTRUCTION: Evaluate for quishing. If the payload uses redirects or shorteners,
       riskScore: 100,
       riskLevel: RiskLevel.CRITICAL,
       explanation: `ENGINE ERROR: ${error.message}. Payload treated as critical threat by default.`,
-      systemStatus: 'active',
       recommendations: ["DO NOT OPEN THIS QR", "Report to local IT", "Wipe clipboard"],
       originalContent: content || "ERROR_ARTIFACT",
       probabilities: { malicious: 100, fake: 100, authentic: 0 }
@@ -157,7 +119,6 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
   };
 
   probs = applyHeuristicOverrides(probs, defaultContent);
-  probs = ensureDimensionalSeparation(probs);
 
   const rawScore = (0.8 * probs.malicious) + (0.7 * probs.fake) - (0.5 * probs.authentic);
   const finalScore = Math.max(0, Math.min(100, Math.round(rawScore * 1.35)));
@@ -174,13 +135,11 @@ function processResponse(response: GenerateContentResponse, defaultContent: stri
     explanation: raw.expert_assessment || "No log generated.",
     recommendations: raw.recommended_actions || ["Exercise caution."],
     originalContent: defaultContent,
-    systemStatus: 'active',
     probabilities: probs
   };
 }
 
 export async function getChatbotResponse(message: string, context?: string): Promise<string> {
-  if (!process.env.API_KEY) return "Configuration required to enable assistant.";
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
